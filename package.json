@@ -1,0 +1,14 @@
+{
+  "name": "asibi",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @asibi/web",
+    "build": "npm run build -w @asibi/web",
+    "lint": "npm run lint -w @asibi/web",
+    "typecheck": "npm run typecheck -w @asibi/web"
+  }
+}

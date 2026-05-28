@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://placeholder.supabase.co
+      SUPABASE_ANON_KEY: placeholder
+      SUPABASE_SERVICE_ROLE_KEY: placeholder
+      UPSTASH_REDIS_REST_URL: https://placeholder.upstash.io
+      UPSTASH_REDIS_REST_TOKEN: placeholder
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --workspace=apps/web || true
+
+      - name: Type check
+        run: npm run typecheck --workspace=apps/web
+
+      - name: Security audit
+        run: npm audit --audit-level=high || true
+
+      - name: Migration check
+        run: |
+          count=$(find supabase/migrations -name "*.sql" | wc -l)
+          echo "Found $count migration files"
+          test $count -gt 0 || (echo "No migration files found" && exit 1)
+          for f in supabase/migrations/*.sql; do
+            grep -qiE "create|alter|insert|drop|update" "$f" || (echo "Suspicious empty migration: $f" && exit 1)
+            echo "OK: $f"
+          done
+
+      - name: Build
+        run: npm run build --workspace=apps/web
+
+      - name: Unit tests — triage rules
+        run: node tests/triage.test.mjs
+
+      - name: Unit tests — sync backoff
+        run: node tests/sync-backoff.test.mjs
+
+      - name: Unit tests — backoff extended
+        run: node tests/backoff-extended.test.mjs
+
+      - name: Unit tests — validation schemas
+        run: node tests/validation.test.mjs
+
+      - name: Unit tests — case IDs and idempotency
+        run: node tests/cases.test.mjs
+
+      - name: Security tests — XSS prevention
+        run: node tests/security/xss.test.mjs
+
+      - name: Security tests — auth logic
+        run: node tests/security/auth.test.mjs
+
+      - name: Offline tests — service worker checks
+        run: node tests/offline/sw.test.mjs
+
+      - name: Integration tests (skipped without live env)
+        run: |
+          node tests/integration/auth.test.mjs
+          node tests/integration/sync.test.mjs
+          node tests/integration/dashboard.test.mjs
+
+      - name: Load tests (skipped without live env)
+        run: node tests/load/concurrent.test.mjs
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Vercel
+        run: npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

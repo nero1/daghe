@@ -1,0 +1,2746 @@
+# Product Requirements Document
+
+## Asibi: Offline CHW Climate Triage PWA
+
+## 1. Product Overview
+
+**Asibi** is a mobile-first, web-based Progressive Web App for community health workers in Nigeria. The app helps CHWs triage climate-related and common illnesses through a guided symptom flow, save cases offline, and sync records when internet connectivity returns.
+
+The app is designed for low-connectivity environments, cheap hosting, mobile-first usage, multilingual access, and secure health data handling. The original concept defines Asibi as an offline CHW triage PWA with four core screens: Home, Triage Flow, Result Screen, and Case Log, plus an optional online supervisor dashboard. 
+
+---
+
+# 2. Product Goals
+
+## Primary Goal
+
+Build a lightweight, secure, offline-capable triage tool that helps CHWs make faster, safer, and more consistent health decisions in the field.
+
+## Secondary Goals
+
+1. Work reliably on low-end Android and iOS phones.
+2. Support offline-first case capture.
+3. Sync safely to Supabase when online.
+4. Provide a supervisor dashboard for aggregate monitoring.
+5. Support multilingual use: English, Hausa, Yoruba, and Igbo.
+6. Use caching and session design that can support thousands of concurrent users.
+7. Prevent data leakage, financial/accounting inconsistencies, race conditions, and security vulnerabilities from the beginning.
+
+---
+
+# 3. Target Users
+
+## Primary Users
+
+### Community Health Workers
+
+CHWs in rural or semi-urban locations who need fast, simple triage support while working with limited or unstable internet.
+
+## Secondary Users
+
+### Clinic Supervisors
+
+Supervisors who review synced case logs, monitor illness patterns, and identify emerging outbreaks or clusters.
+
+### Program Admins
+
+NGO, health system, or implementation team members responsible for user access, reporting, system monitoring, and data governance.
+
+---
+
+# 4. Supported Platforms
+
+## Web
+
+The app will be accessible through a browser.
+
+## Mobile First
+
+The interface must be designed primarily for mobile screens because most users will access it on phones.
+
+## PWA
+
+The app should support:
+
+1. Add-to-home-screen installation.
+2. Offline app shell loading.
+3. Cached triage logic.
+4. IndexedDB/local storage case persistence.
+5. Background or manual sync when online.
+
+---
+
+# 5. Proposed Stack
+
+## Frontend
+
+1. Next.js or React-based web app.
+2. Mobile-first responsive UI.
+3. Tailwind CSS or equivalent utility-first CSS framework.
+4. PWA manifest.
+5. Service Worker.
+6. IndexedDB for durable offline case storage.
+7. Local Storage for lightweight preferences and non-sensitive cached metadata.
+
+## Backend
+
+1. Node.js.
+2. Supabase.
+3. Supabase PostgreSQL.
+4. Supabase Auth or custom JWT auth.
+5. Supabase Row Level Security.
+6. Redis through native `ioredis`.
+7. Upstash Redis for serverless-compatible Redis where needed.
+
+## Deployment
+
+1. GitHub repository.
+2. GitHub Actions CI/CD.
+3. Vercel deployment.
+4. Environment variables managed through Vercel and GitHub Secrets.
+
+## Session Management
+
+Use JWT plus Redis-backed session management.
+
+Expected behavior:
+
+1. JWT identifies the user/session.
+2. Redis stores session state, revocation records, refresh token metadata, and rate-limit counters.
+3. JWTs must be short-lived.
+4. Refresh tokens must be rotated.
+5. Logout should invalidate Redis session records.
+6. Redis TTLs must match session expiry rules.
+
+---
+
+# 6. Core Features
+
+## 6.1 Home Screen
+
+### Requirements
+
+The Home screen must include:
+
+1. Language selector.
+2. “Start Triage” button.
+3. “My Cases” button.
+4. Optional online/offline status indicator.
+5. Optional sync status indicator.
+6. Optional supervisor/admin login entry point.
+
+### Acceptance Criteria
+
+1. User can start triage within one tap.
+2. User can change language from the home screen.
+3. App clearly shows whether it is online or offline.
+4. App loads even when offline after first installation.
+
+---
+
+## 6.2 Triage Flow
+
+### Requirements
+
+The Triage Flow guides the CHW through symptoms and follow-up questions.
+
+Primary symptom clusters:
+
+1. Fever and sweating.
+2. Breathing problems.
+3. Vomiting or diarrhea.
+4. Confusion or collapse.
+5. Skin rash.
+6. Other common symptoms.
+
+The flow should ask 3 to 5 follow-up questions based on selected symptoms.
+
+Example contextual questions:
+
+1. Has it rained heavily in the last 7 days?
+2. Is the patient breathing fast?
+3. Has there been dust, smoke, or wildfire exposure?
+4. Is the patient unconscious?
+5. Is there severe dehydration?
+6. Is the patient a child under 5?
+7. Is there persistent vomiting?
+8. Is there blood in stool?
+9. Is there a high fever?
+10. Has the patient had seizures?
+
+### Acceptance Criteria
+
+1. Triage can be completed offline.
+2. The user should not need to type during the main triage flow.
+3. Each question should use large tap targets.
+4. User can go back to the previous question.
+5. User can cancel a triage session.
+6. No partial case should be lost unexpectedly if the app closes.
+
+---
+
+## 6.3 Result Screen
+
+### Requirements
+
+The Result Screen should show:
+
+1. Likely condition.
+2. Confidence or likelihood category.
+3. Recommended action.
+4. Red flags.
+5. Referral guidance.
+6. Care advice.
+7. Save case button.
+8. Disclaimer that the tool supports triage and does not replace clinical judgment.
+
+### Result Categories
+
+1. Monitor.
+2. Treat locally if within CHW scope.
+3. Refer to clinic.
+4. Urgent referral.
+5. Emergency escalation.
+
+### Acceptance Criteria
+
+1. Result is understandable in simple language.
+2. Result is color and icon coded.
+3. Critical red flags are visually prominent.
+4. User can save the case locally.
+5. The app prevents unsafe output, such as giving high-risk medication instructions beyond CHW scope.
+
+---
+
+## 6.4 Case Log
+
+### Requirements
+
+The Case Log stores all triage sessions locally first.
+
+Each case should include:
+
+1. Case ID.
+2. Local device ID.
+3. CHW user ID, where available.
+4. Timestamp.
+5. Patient age range.
+6. Patient sex, optional.
+7. Symptom inputs.
+8. Follow-up answers.
+9. Result.
+10. Recommended action.
+11. Referral flag.
+12. Sync status.
+13. Location, optional and consent-based.
+14. App version.
+15. Decision-tree version.
+
+### Data Exclusions
+
+Do not store:
+
+1. Patient name.
+2. Phone number.
+3. Full address.
+4. National ID number.
+5. Unnecessary personally identifiable information.
+
+### Acceptance Criteria
+
+1. Case is saved locally when offline.
+2. Case syncs automatically or manually when online.
+3. Unsynced cases are clearly marked.
+4. Failed syncs are retried safely.
+5. Duplicate cases are not created during repeated sync attempts.
+
+---
+
+## 6.5 Supervisor Dashboard
+
+### Requirements
+
+The supervisor dashboard is online-only.
+
+It should include:
+
+1. Secure login.
+2. Case summary metrics.
+3. Filter by date range.
+4. Filter by illness type.
+5. Filter by location where available.
+6. CHW-level aggregate statistics.
+7. Case cluster alerts.
+8. Export CSV, where authorized.
+9. Map view, if location data is enabled.
+10. Audit logs for sensitive actions.
+
+### Acceptance Criteria
+
+1. Supervisors can view only permitted data.
+2. Aggregated data must not reveal unnecessary patient-level information.
+3. Dashboard must respect Supabase Row Level Security.
+4. Exports must be permission-controlled.
+5. Dashboard must work efficiently with thousands of case records.
+
+---
+
+# 7. Illness Coverage
+
+## 7.1 Climate-Related Illnesses
+
+The first release should support:
+
+1. Heat exhaustion.
+2. Heatstroke.
+3. Malaria surge after rainfall.
+4. Dengue fever.
+5. Respiratory illness linked to dust, smoke, or poor air quality.
+6. Waterborne illness after flooding.
+
+## 7.2 Common Non-Climate Illnesses
+
+Recommended additions:
+
+1. Pneumonia.
+2. Diarrheal disease.
+3. Typhoid-like febrile illness.
+4. Measles-like rash illness.
+5. Severe dehydration.
+6. Malnutrition warning signs.
+7. Skin infection.
+8. Maternal danger signs, if CHW scope allows.
+
+---
+
+# 8. Key Workflows
+
+## 8.1 First-Time Setup
+
+1. CHW opens app link.
+2. App loads in browser.
+3. User is prompted to install the PWA.
+4. App shell, static assets, triage rules, and language files are cached.
+5. User chooses language.
+6. User accepts consent and data policy.
+7. User optionally enters CHW profile or clinic code.
+8. App is ready for offline use.
+
+---
+
+## 8.2 Offline Triage
+
+1. CHW opens installed PWA.
+2. App loads from cache.
+3. CHW taps “Start Triage.”
+4. CHW selects patient profile.
+5. CHW selects symptom cluster.
+6. App asks follow-up questions.
+7. App shows triage result.
+8. CHW saves case.
+9. Case is stored in IndexedDB.
+10. Case is marked as unsynced.
+
+---
+
+## 8.3 Online Enhanced Triage
+
+1. User follows the normal triage flow.
+2. App checks connectivity.
+3. If online, app may call backend triage service for enhanced reasoning.
+4. Backend validates input.
+5. Backend may use cached logic or approved AI-assisted triage logic.
+6. Result is returned.
+7. Case is saved locally and synced to Supabase.
+
+Important: AI responses must be constrained by approved decision rules. The app should not allow a general-purpose AI model to generate uncontrolled medical advice.
+
+---
+
+## 8.4 Sync Flow
+
+1. App detects internet connection.
+2. App checks for unsynced local cases.
+3. Each case is sent with an idempotency key.
+4. Backend validates payload.
+5. Backend writes case to Supabase.
+6. Backend returns success.
+7. Local case is marked as synced.
+8. If sync fails, retry with backoff.
+9. If duplicate detected, mark local case as synced without creating a new server record.
+
+---
+
+## 8.5 Supervisor Review
+
+1. Supervisor logs in.
+2. Dashboard loads aggregate case data.
+3. Supervisor filters by illness, date, location, or CHW.
+4. Supervisor identifies clusters.
+5. Supervisor flags cases or locations for escalation.
+6. System records action in audit log.
+
+---
+
+# 9. Functional Requirements
+
+## 9.1 Authentication and Authorization
+
+### Requirements
+
+1. Support CHW, supervisor, and admin roles.
+2. Use JWT plus Redis session tracking.
+3. Use short-lived access tokens.
+4. Use refresh token rotation.
+5. Store refresh/session state in Redis.
+6. Implement logout and session revocation.
+7. Enforce Supabase Row Level Security.
+8. Protect admin routes.
+9. Prevent privilege escalation.
+10. Log sensitive access events.
+
+### Roles
+
+| Role       | Permissions                                        |
+| ---------- | -------------------------------------------------- |
+| CHW        | Perform triage, save cases, sync own cases         |
+| Supervisor | View aggregate and authorized case data            |
+| Admin      | Manage users, locations, roles, system settings    |
+| System     | Execute sync, queue, caching, and monitoring tasks |
+
+---
+
+## 9.2 Offline Support
+
+### Requirements
+
+1. App shell must be cached.
+2. Triage rules must be cached.
+3. Language files must be cached.
+4. Case logs must be stored in IndexedDB.
+5. Local Storage may store non-sensitive preferences only.
+6. Sensitive data must not be stored in Local Storage.
+7. Sync must resume after connectivity returns.
+
+---
+
+## 9.3 Caching
+
+### Client-Side Caching
+
+Use:
+
+1. Service Worker Cache API for static assets.
+2. IndexedDB for case data.
+3. Local Storage for language preference, theme, and non-sensitive metadata.
+
+Do not store sensitive health records in Local Storage.
+
+### Server-Side Caching
+
+Use Redis for:
+
+1. Session records.
+2. Rate limits.
+3. Cached dashboard statistics.
+4. Triage rule version cache.
+5. Idempotency keys.
+6. Sync deduplication.
+7. Thundering herd protection locks.
+
+### Cache Invalidation
+
+1. Triage rules must have version numbers.
+2. Cached dashboard stats must use short TTLs.
+3. Session cache must expire automatically.
+4. User role changes must invalidate affected session data.
+5. Decision-tree updates must force client refresh or show update prompt.
+
+---
+
+## 9.4 Case Sync
+
+### Requirements
+
+1. Every local case must have a UUID.
+2. Every sync request must include an idempotency key.
+3. Server must reject malformed records.
+4. Server must deduplicate repeated submissions.
+5. Sync must use exponential backoff.
+6. Sync must avoid parallel duplicate uploads.
+7. Sync must be resumable.
+8. Sync must preserve local data until confirmed by server.
+
+---
+
+## 9.5 Admin and Monitoring
+
+### Requirements
+
+1. Health check endpoint.
+2. Error logging.
+3. Performance metrics.
+4. Sync failure metrics.
+5. Case volume metrics.
+6. Redis availability monitoring.
+7. Supabase query latency monitoring.
+8. Dashboard load time tracking.
+9. Suspicious activity detection.
+10. Audit logs.
+
+---
+
+# 10. Non-Functional Requirements
+
+## 10.1 Performance
+
+1. Initial page load should be lightweight.
+2. Core app should work on low-end devices.
+3. Triage flow interactions should feel instant.
+4. Dashboard queries must use pagination.
+5. Heavy reports must not block main app usage.
+6. Use indexes for case search/filter fields.
+7. Avoid excessive client-side bundle size.
+
+## 10.2 Scalability
+
+The app should handle thousands of concurrent users through:
+
+1. Stateless Node.js API design.
+2. Redis-backed sessions and rate limiting.
+3. Supabase indexes.
+4. Cached aggregate dashboard metrics.
+5. Pagination.
+6. Queue-safe sync logic.
+7. Idempotent writes.
+8. Backpressure during sync spikes.
+9. Edge-friendly deployment on Vercel.
+10. Efficient PWA caching to reduce repeated server hits.
+
+## 10.3 Reliability
+
+1. App must not lose cases when offline.
+2. Sync failure must not delete local records.
+3. Server failure should return safe error messages.
+4. Redis failure should degrade gracefully where possible.
+5. Supabase write failure should retry safely.
+6. Duplicate sync should not create duplicate records.
+7. Partial failures should be logged and recoverable.
+
+## 10.4 Security
+
+The app must be hardened against:
+
+1. OWASP Top 10 risks.
+2. SQL injection.
+3. XSS.
+4. CSRF.
+5. Broken authentication.
+6. Broken access control.
+7. Data leakage.
+8. Insecure direct object references.
+9. Session fixation.
+10. JWT theft and replay.
+11. Rate-limit bypass.
+12. Row Level Security misconfiguration.
+13. Sensitive data exposure in browser storage.
+14. Misconfigured CORS.
+15. Dependency vulnerabilities.
+
+---
+
+# 11. Security Requirements
+
+## 11.1 Input Validation
+
+1. Validate all client input on the server.
+2. Use schema validation, for example Zod or Joi.
+3. Reject unknown fields unless explicitly allowed.
+4. Normalize user input.
+5. Sanitize any displayed text.
+6. Never trust client-generated role or permission fields.
+
+## 11.2 XSS Protection
+
+1. Escape rendered content.
+2. Avoid unsafe HTML rendering.
+3. Use Content Security Policy.
+4. Sanitize translated strings if loaded dynamically.
+5. Prevent injection into dashboard tables, exports, and logs.
+
+## 11.3 CSRF Protection
+
+1. Use same-site cookies where cookies are used.
+2. Use CSRF tokens for state-changing browser requests if cookie auth is used.
+3. For bearer-token APIs, enforce CORS and origin checks.
+
+## 11.4 JWT Security
+
+1. Use short expiry for access tokens.
+2. Rotate refresh tokens.
+3. Store token revocation state in Redis.
+4. Sign tokens with strong secrets.
+5. Separate access and refresh token secrets.
+6. Never expose secrets to frontend bundles.
+7. Invalidate sessions after role changes.
+
+## 11.5 Supabase Row Level Security
+
+RLS must enforce:
+
+1. CHWs can insert and read their own cases.
+2. Supervisors can read cases only within assigned clinic, region, or program.
+3. Admins can manage users only within allowed scope.
+4. Anonymous users cannot access case records.
+5. Service role keys must never be exposed client-side.
+
+Every table containing sensitive data must have RLS enabled.
+
+## 11.6 Data Privacy
+
+1. Store minimum patient data.
+2. Avoid patient names.
+3. Avoid phone numbers.
+4. Avoid exact addresses unless absolutely required.
+5. Encrypt data in transit.
+6. Consider encrypting sensitive fields at rest.
+7. Log access to sensitive records.
+8. Provide data retention settings.
+9. Allow deletion or anonymization where required.
+
+---
+
+# 12. Data Model
+
+## 12.1 Users Table
+
+Fields:
+
+1. `id`
+2. `email`
+3. `role`
+4. `name`
+5. `clinic_id`
+6. `region_id`
+7. `status`
+8. `created_at`
+9. `updated_at`
+
+## 12.2 Cases Table
+
+Fields:
+
+1. `id`
+2. `local_case_id`
+3. `idempotency_key`
+4. `chw_user_id`
+5. `clinic_id`
+6. `region_id`
+7. `patient_age_range`
+8. `patient_sex`
+9. `symptoms`
+10. `answers`
+11. `triage_result`
+12. `recommended_action`
+13. `risk_level`
+14. `referral_required`
+15. `location_lat`, optional
+16. `location_lng`, optional
+17. `location_accuracy`, optional
+18. `decision_tree_version`
+19. `app_version`
+20. `created_at`
+21. `synced_at`
+
+## 12.3 Clinics Table
+
+Fields:
+
+1. `id`
+2. `name`
+3. `region_id`
+4. `created_at`
+5. `updated_at`
+
+## 12.4 Regions Table
+
+Fields:
+
+1. `id`
+2. `name`
+3. `country`
+4. `created_at`
+5. `updated_at`
+
+## 12.5 Audit Logs Table
+
+Fields:
+
+1. `id`
+2. `actor_user_id`
+3. `action`
+4. `target_type`
+5. `target_id`
+6. `metadata`
+7. `ip_address`
+8. `user_agent`
+9. `created_at`
+
+## 12.6 Triage Rules Table
+
+Fields:
+
+1. `id`
+2. `version`
+3. `language`
+4. `rules_json`
+5. `is_active`
+6. `created_by`
+7. `created_at`
+
+---
+
+# 13. API Requirements
+
+## 13.1 Auth APIs
+
+### `POST /api/auth/login`
+
+Authenticates user and creates Redis-backed session.
+
+### `POST /api/auth/refresh`
+
+Rotates refresh token and issues new access token.
+
+### `POST /api/auth/logout`
+
+Revokes session in Redis.
+
+---
+
+## 13.2 Case APIs
+
+### `POST /api/cases/sync`
+
+Syncs one or more local cases.
+
+Requirements:
+
+1. Validate payload.
+2. Require authenticated user.
+3. Require idempotency key.
+4. Deduplicate by `local_case_id` and `idempotency_key`.
+5. Insert only authorized records.
+6. Return per-case success/failure status.
+
+### `GET /api/cases`
+
+Returns authorized cases with pagination.
+
+Required query parameters:
+
+1. `limit`
+2. `cursor`
+3. Optional `date_from`
+4. Optional `date_to`
+5. Optional `risk_level`
+6. Optional `illness_type`
+
+---
+
+## 13.3 Dashboard APIs
+
+### `GET /api/dashboard/summary`
+
+Returns aggregate metrics.
+
+### `GET /api/dashboard/clusters`
+
+Returns possible case clusters.
+
+### `GET /api/dashboard/export`
+
+Exports authorized data.
+
+Export must be permission-gated and audit-logged.
+
+---
+
+## 13.4 Triage APIs
+
+### `GET /api/triage/rules`
+
+Returns current triage rules version.
+
+### `POST /api/triage/evaluate`
+
+Evaluates symptom input using approved rules and optionally AI-assisted enhancement.
+
+Requirements:
+
+1. Validate input.
+2. Enforce rate limits.
+3. Use cached result for common flows.
+4. Never return unrestricted medical advice.
+5. Log model failures without exposing sensitive input unnecessarily.
+
+---
+
+# 14. Redis Usage
+
+Redis should be used for:
+
+1. Session state.
+2. Refresh token rotation metadata.
+3. JWT revocation list.
+4. Rate limiting.
+5. Idempotency keys.
+6. Sync locks.
+7. Cached dashboard summaries.
+8. Queue state where needed.
+9. Thundering herd protection.
+10. Temporary retry state.
+
+## Redis Failure Handling
+
+If Redis is unavailable:
+
+1. Authenticated requests should fail safely where session validation requires Redis.
+2. Public cached assets should still load.
+3. Offline triage should continue.
+4. Sync should pause and retry later.
+5. Dashboard should show degraded state instead of crashing.
+
+---
+
+# 15. Race Conditions and Idempotency
+
+## Risks
+
+1. Same case syncing multiple times.
+2. Multiple tabs trying to sync at once.
+3. User double-tapping save.
+4. Network retry causing duplicate inserts.
+5. Role changed while user still has old JWT.
+6. Multiple workers updating same aggregate.
+7. Redis lock expiry during long-running sync.
+
+## Required Mitigations
+
+1. Use unique `local_case_id`.
+2. Use unique `idempotency_key`.
+3. Add database unique constraints.
+4. Add Redis sync locks.
+5. Disable save button during save operation.
+6. Use atomic database operations.
+7. Use server-side permission checks.
+8. Use retry-safe sync design.
+9. Use optimistic UI only when rollback is possible.
+10. Recheck user role on sensitive actions.
+
+---
+
+# 16. Accounting and Financial Integrity
+
+Even if the first version has no payments, the system should be designed safely for future grant reporting, paid deployments, subscriptions, reimbursements, or billing.
+
+Requirements:
+
+1. Never calculate financial totals only on the client.
+2. Use integer minor units for money, for example kobo or cents.
+3. Use immutable transaction records if payments are added later.
+4. Use idempotency keys for all payment or reimbursement actions.
+5. Audit all financial changes.
+6. Avoid floating-point math for money.
+7. Protect against double billing or duplicate reimbursements.
+8. Use reconciliation reports.
+9. Keep financial permissions separate from health-data permissions.
+
+---
+
+# 17. Error Handling
+
+## General Requirements
+
+1. All API errors must return structured JSON.
+2. User-facing errors must be simple and non-technical.
+3. Sensitive internal error details must not be exposed.
+4. Errors must be logged with request ID.
+5. Retryable errors must be identified.
+6. Offline errors must explain that data remains saved locally.
+7. Sync failures must not delete local cases.
+
+## Example Error Types
+
+1. Validation error.
+2. Authentication error.
+3. Authorization error.
+4. Network error.
+5. Sync conflict.
+6. Duplicate record.
+7. Redis unavailable.
+8. Supabase unavailable.
+9. AI service unavailable.
+10. Rate limit exceeded.
+
+---
+
+# 18. Monitoring and Observability
+
+## Required Metrics
+
+1. Active users.
+2. Triage sessions started.
+3. Triage sessions completed.
+4. Cases saved locally.
+5. Cases synced successfully.
+6. Sync failures.
+7. Duplicate sync attempts.
+8. API latency.
+9. Redis latency.
+10. Supabase query latency.
+11. Dashboard query latency.
+12. Auth failures.
+13. Rate-limit events.
+14. Error rate by endpoint.
+15. PWA install count, where available.
+16. Offline usage rate.
+
+## Required Logs
+
+1. API request logs.
+2. Auth logs.
+3. Sync logs.
+4. Error logs.
+5. Audit logs.
+6. Security events.
+7. Dashboard export logs.
+8. Admin action logs.
+
+---
+
+# 19. Common Bugs to Guard Against
+
+## Offline/PWA Bugs
+
+1. App shows old triage rules after update.
+2. Service Worker caches broken build.
+3. Case disappears after browser storage cleanup.
+4. Local Storage used for sensitive data.
+5. IndexedDB migration breaks older cases.
+6. Sync status becomes incorrect after failed request.
+7. Multiple tabs duplicate sync.
+
+## Auth Bugs
+
+1. JWT remains valid after logout.
+2. Refresh token reuse is not detected.
+3. Role changes do not invalidate existing sessions.
+4. Client-side route protection without server-side checks.
+5. Service role key exposed to frontend.
+
+## Data Bugs
+
+1. Duplicate cases.
+2. Wrong CHW assigned to case.
+3. Missing clinic or region scope.
+4. Incorrect date/time due to timezone handling.
+5. Corrupted JSON in symptoms or answers.
+6. Failed migration causing case loss.
+
+## Dashboard Bugs
+
+1. Loading all records at once.
+2. Missing pagination.
+3. Aggregate numbers not matching raw records.
+4. Supervisor seeing unauthorized regions.
+5. CSV injection in exported files.
+6. Slow filters without database indexes.
+
+## Security Bugs
+
+1. XSS through case notes or translated text.
+2. SQL injection through filters.
+3. CSRF on auth or export endpoints.
+4. CORS too permissive.
+5. Rate limits missing on login.
+6. RLS disabled or incomplete.
+7. Sensitive error messages exposed.
+
+---
+
+# 20. Scalability Requirements
+
+## Expected Load
+
+The system should be designed to handle:
+
+1. Thousands of CHWs using the app.
+2. Bursts of sync activity when connectivity returns.
+3. Many devices syncing after training sessions.
+4. Supervisor dashboard usage during outbreaks.
+5. Repeated offline/online transitions.
+
+## Scalability Measures
+
+1. Use Redis rate limiting.
+2. Use sync batching.
+3. Use exponential backoff.
+4. Use database indexes.
+5. Use pagination everywhere.
+6. Cache dashboard aggregates.
+7. Avoid real-time subscriptions unless needed.
+8. Use serverless-friendly Redis through Upstash.
+9. Avoid long-running Vercel functions.
+10. Move heavy analytics to background jobs if needed.
+
+---
+
+# 21. Database Indexing Requirements
+
+Recommended indexes:
+
+1. `cases.chw_user_id`
+2. `cases.clinic_id`
+3. `cases.region_id`
+4. `cases.created_at`
+5. `cases.risk_level`
+6. `cases.referral_required`
+7. `cases.local_case_id`
+8. `cases.idempotency_key`
+9. Composite index on `region_id, created_at`
+10. Composite index on `clinic_id, created_at`
+11. Unique index on `chw_user_id, local_case_id`
+12. Unique index on `idempotency_key`
+
+---
+
+# 22. Deployment Requirements
+
+## GitHub Actions
+
+CI/CD should include:
+
+1. Install dependencies.
+2. Type check.
+3. Lint.
+4. Unit tests.
+5. Security audit.
+6. Build.
+7. Run migration checks.
+8. Deploy to Vercel.
+
+## Vercel
+
+Requirements:
+
+1. Separate preview and production environments.
+2. Environment variables set securely.
+3. No secrets committed to repository.
+4. Production deployment only from protected branch.
+5. Rollback plan for failed deployments.
+
+## Supabase
+
+Requirements:
+
+1. RLS enabled before production.
+2. Migrations tracked in source control.
+3. Service role key used only server-side.
+4. Backups enabled.
+5. Database policies tested.
+
+---
+
+# 23. Code Quality Requirements
+
+## Commenting Standard
+
+Code comments should be concise and useful.
+
+Use comments for:
+
+1. Complex logic.
+2. Security-sensitive logic.
+3. Race-condition prevention.
+4. Idempotency handling.
+5. Non-obvious business rules.
+6. Workarounds.
+7. Known limitations.
+
+Avoid comments for obvious code.
+
+Example:
+
+```js
+// Prevent duplicate uploads when the user opens the app in multiple tabs.
+const lock = await acquireSyncLock(localCaseId);
+```
+
+## General Code Requirements
+
+1. Use TypeScript where possible.
+2. Use strict mode.
+3. Use schema validation.
+4. Use centralized error handling.
+5. Use reusable API clients.
+6. Avoid duplicated business logic.
+7. Keep triage rules versioned.
+8. Separate UI, business logic, sync logic, and storage logic.
+9. Write unit tests for triage rules.
+10. Write integration tests for sync and auth.
+
+---
+
+# 24. Testing Requirements
+
+## Unit Tests
+
+Cover:
+
+1. Triage decision rules.
+2. Risk-level calculations.
+3. Validation schemas.
+4. Local case creation.
+5. Idempotency key generation.
+6. Permission logic.
+7. Financial math helpers, if added.
+
+## Integration Tests
+
+Cover:
+
+1. Login.
+2. Logout.
+3. Refresh token rotation.
+4. Case sync.
+5. Duplicate sync attempt.
+6. RLS access checks.
+7. Dashboard filters.
+8. CSV export permissions.
+
+## Offline Tests
+
+Cover:
+
+1. App loads offline.
+2. Triage works offline.
+3. Case saves offline.
+4. Sync resumes online.
+5. Sync does not duplicate cases.
+6. Failed sync preserves local data.
+
+## Security Tests
+
+Cover:
+
+1. XSS attempts.
+2. SQL injection attempts.
+3. CSRF attempts.
+4. Broken access control.
+5. Unauthorized dashboard access.
+6. RLS bypass attempts.
+7. JWT replay.
+8. Refresh token reuse.
+9. Rate-limit bypass.
+
+## Load Tests
+
+Cover:
+
+1. Thousands of concurrent API requests.
+2. Sync bursts.
+3. Dashboard aggregate queries.
+4. Redis rate-limit behavior.
+5. Supabase query performance.
+
+---
+
+# 25. MVP Scope
+
+## MVP Includes
+
+1. Mobile-first PWA.
+2. Home screen.
+3. Language selector.
+4. Offline triage flow.
+5. Result screen.
+6. Local case log.
+7. Supabase sync.
+8. JWT plus Redis session handling.
+9. Basic supervisor dashboard.
+10. RLS-protected case access.
+11. Basic metrics and logging.
+12. GitHub Actions to Vercel deployment.
+
+## MVP Excludes
+
+1. Payments.
+2. Full hospital EMR integration.
+3. Complex AI diagnosis.
+4. Full national disease surveillance integration.
+5. Advanced geospatial cluster detection.
+6. Native Android/iOS apps.
+7. Patient identity management.
+
+---
+
+# 26. Future Enhancements
+
+1. Outbreak alert integration.
+2. SMS fallback.
+3. Voice-guided triage.
+4. Audio translations.
+5. Supervisor push notifications.
+6. Advanced analytics.
+7. Clinic referral tracking.
+8. CHW training mode.
+9. In-app learning modules.
+10. AI-assisted supervisor insights.
+11. Native mobile wrapper if required.
+12. Offline map support.
+
+---
+
+# 27. Risks and Mitigations
+
+| Risk                          | Impact | Mitigation                                                              |
+| ----------------------------- | -----: | ----------------------------------------------------------------------- |
+| Unsafe medical recommendation |   High | Use approved decision trees, clinical review, constrained AI            |
+| Data leakage                  |   High | Minimal data, RLS, encryption, secure storage                           |
+| Duplicate case sync           | Medium | Idempotency keys, unique constraints, Redis locks                       |
+| Poor offline behavior         |   High | IndexedDB, service worker tests, sync retry logic                       |
+| Supabase RLS failure          |   High | Policy tests, least privilege, no service key in frontend               |
+| Redis outage                  | Medium | Graceful degradation, retry logic                                       |
+| Dashboard slow at scale       | Medium | Indexes, pagination, Redis aggregates                                   |
+| XSS in dashboard              |   High | Escape output, sanitize input, CSP                                      |
+| CSRF/auth attacks             |   High | Secure cookies or strict bearer-token design                            |
+| Thundering herd after outage  | Medium | Backoff, batching, Redis locks                                          |
+| Memory leaks on mobile        | Medium | Avoid heavy client state, cleanup listeners                             |
+| Expensive hosting             | Medium | Cache aggressively, avoid heavy server work, serverless-friendly design |
+
+---
+
+# 28. Definition of Done
+
+A feature is done only when:
+
+1. It works on mobile.
+2. It works offline where required.
+3. It handles loading, empty, success, and error states.
+4. It has validation.
+5. It has tests.
+6. It respects RLS and permissions.
+7. It logs meaningful errors.
+8. It does not expose secrets.
+9. It does not duplicate data under retry.
+10. It has safe failure behavior.
+11. It has concise comments where logic is non-obvious.
+12. It has been reviewed for OWASP Top 10 risks.
+13. It aligns with the project’s cheap-hosting constraints.
+14. It is documented if it intentionally deviates from project guidelines.
+
+---
+
+# 29. Suggested Build Sequence
+
+## Phase 1: Foundation
+
+1. Set up repo.
+2. Configure Next.js/Node.js app.
+3. Configure Supabase.
+4. Configure Redis/Upstash.
+5. Configure GitHub Actions.
+6. Configure Vercel deployment.
+7. Add basic auth and roles.
+
+## Phase 2: PWA and Offline Shell
+
+1. Add PWA manifest.
+2. Add Service Worker.
+3. Cache app shell.
+4. Cache language files.
+5. Add offline status.
+6. Add install prompt.
+
+## Phase 3: Triage MVP
+
+1. Build Home screen.
+2. Build symptom selection.
+3. Build follow-up question flow.
+4. Build result screen.
+5. Add decision-tree logic.
+6. Add triage versioning.
+
+## Phase 4: Case Log and Sync
+
+1. Add IndexedDB local storage.
+2. Save cases offline.
+3. Add sync queue.
+4. Add idempotent server sync.
+5. Add Redis sync locks.
+6. Add Supabase case records.
+
+## Phase 5: Supervisor Dashboard
+
+1. Add supervisor login.
+2. Add aggregate metrics.
+3. Add filters.
+4. Add case list with pagination.
+5. Add export with audit logs.
+6. Add RLS tests.
+
+## Phase 6: Hardening
+
+1. Security review.
+2. Load testing.
+3. Offline testing.
+4. RLS penetration tests.
+5. Dependency audit.
+6. Monitoring setup.
+7. Production deployment checklist.
+
+---
+
+# 30. Production Readiness Checklist
+
+## Security
+
+* [ ] RLS enabled on all sensitive tables.
+* [ ] Service role key never exposed.
+* [ ] JWT expiry configured.
+* [ ] Redis session revocation works.
+* [ ] Refresh token rotation works.
+* [ ] Rate limits enabled.
+* [ ] CSP configured.
+* [ ] CORS restricted.
+* [ ] Input validation added.
+* [ ] Audit logs enabled.
+* [ ] Export permissions enforced.
+
+## Offline
+
+* [ ] App shell works offline.
+* [ ] Triage rules cached.
+* [ ] Cases saved to IndexedDB.
+* [ ] Sync resumes after reconnect.
+* [ ] Duplicate sync prevented.
+* [ ] Failed sync does not delete local data.
+
+## Scalability
+
+* [ ] Dashboard queries paginated.
+* [ ] Database indexes added.
+* [ ] Redis caching added.
+* [ ] Sync batching added.
+* [ ] Backoff implemented.
+* [ ] Load tests passed.
+
+## Reliability
+
+* [ ] Graceful error messages.
+* [ ] Structured API errors.
+* [ ] Request IDs in logs.
+* [ ] Supabase failures handled.
+* [ ] Redis failures handled.
+* [ ] Deployment rollback plan exists.
+
+## Code Quality
+
+* [ ] TypeScript strict mode.
+* [ ] Linting.
+* [ ] Unit tests.
+* [ ] Integration tests.
+* [ ] Security tests.
+* [ ] Concise comments.
+* [ ] Docs updated.
+* [ ] Environment variables documented.
+
+---
+
+# 31. Summary
+
+Asibi should be built as a secure, mobile-first, offline-capable triage PWA using Node.js, Supabase, Redis, local caching, JWT sessions, and Vercel deployment through GitHub Actions. The product must be designed from the start for poor connectivity, safe medical decision support, data minimization, Row Level Security, idempotent sync, scalability, graceful failure handling, and cheap hosting.
+
+The biggest engineering priorities are:
+
+1. Offline reliability.
+2. Secure case sync.
+3. RLS correctness.
+4. Idempotency.
+5. Safe triage logic.
+6. Redis-backed session and caching architecture.
+7. Protection against duplicate records, data leaks, XSS, CSRF, injection, race conditions, and thundering herd issues.# Product Requirements Document
+
+## Asibi: Offline CHW Climate Triage PWA
+
+## 1. Product Overview
+
+**Asibi** is a mobile-first, web-based Progressive Web App for community health workers in Nigeria. The app helps CHWs triage climate-related and common illnesses through a guided symptom flow, save cases offline, and sync records when internet connectivity returns.
+
+The app is designed for low-connectivity environments, cheap hosting, mobile-first usage, multilingual access, and secure health data handling. The original concept defines Asibi as an offline CHW triage PWA with four core screens: Home, Triage Flow, Result Screen, and Case Log, plus an optional online supervisor dashboard. 
+
+---
+
+# 2. Product Goals
+
+## Primary Goal
+
+Build a lightweight, secure, offline-capable triage tool that helps CHWs make faster, safer, and more consistent health decisions in the field.
+
+## Secondary Goals
+
+1. Work reliably on low-end Android and iOS phones.
+2. Support offline-first case capture.
+3. Sync safely to Supabase when online.
+4. Provide a supervisor dashboard for aggregate monitoring.
+5. Support multilingual use: English, Hausa, Yoruba, and Igbo.
+6. Use caching and session design that can support thousands of concurrent users.
+7. Prevent data leakage, financial/accounting inconsistencies, race conditions, and security vulnerabilities from the beginning.
+
+---
+
+# 3. Target Users
+
+## Primary Users
+
+### Community Health Workers
+
+CHWs in rural or semi-urban locations who need fast, simple triage support while working with limited or unstable internet.
+
+## Secondary Users
+
+### Clinic Supervisors
+
+Supervisors who review synced case logs, monitor illness patterns, and identify emerging outbreaks or clusters.
+
+### Program Admins
+
+NGO, health system, or implementation team members responsible for user access, reporting, system monitoring, and data governance.
+
+---
+
+# 4. Supported Platforms
+
+## Web
+
+The app will be accessible through a browser.
+
+## Mobile First
+
+The interface must be designed primarily for mobile screens because most users will access it on phones.
+
+## PWA
+
+The app should support:
+
+1. Add-to-home-screen installation.
+2. Offline app shell loading.
+3. Cached triage logic.
+4. IndexedDB/local storage case persistence.
+5. Background or manual sync when online.
+
+---
+
+# 5. Proposed Stack
+
+## Frontend
+
+1. Next.js or React-based web app.
+2. Mobile-first responsive UI.
+3. Tailwind CSS or equivalent utility-first CSS framework.
+4. PWA manifest.
+5. Service Worker.
+6. IndexedDB for durable offline case storage.
+7. Local Storage for lightweight preferences and non-sensitive cached metadata.
+
+## Backend
+
+1. Node.js.
+2. Supabase.
+3. Supabase PostgreSQL.
+4. Supabase Auth or custom JWT auth.
+5. Supabase Row Level Security.
+6. Redis through native `ioredis`.
+7. Upstash Redis for serverless-compatible Redis where needed.
+
+## Deployment
+
+1. GitHub repository.
+2. GitHub Actions CI/CD.
+3. Vercel deployment.
+4. Environment variables managed through Vercel and GitHub Secrets.
+
+## Session Management
+
+Use JWT plus Redis-backed session management.
+
+Expected behavior:
+
+1. JWT identifies the user/session.
+2. Redis stores session state, revocation records, refresh token metadata, and rate-limit counters.
+3. JWTs must be short-lived.
+4. Refresh tokens must be rotated.
+5. Logout should invalidate Redis session records.
+6. Redis TTLs must match session expiry rules.
+
+---
+
+# 6. Core Features
+
+## 6.1 Home Screen
+
+### Requirements
+
+The Home screen must include:
+
+1. Language selector.
+2. “Start Triage” button.
+3. “My Cases” button.
+4. Optional online/offline status indicator.
+5. Optional sync status indicator.
+6. Optional supervisor/admin login entry point.
+
+### Acceptance Criteria
+
+1. User can start triage within one tap.
+2. User can change language from the home screen.
+3. App clearly shows whether it is online or offline.
+4. App loads even when offline after first installation.
+
+---
+
+## 6.2 Triage Flow
+
+### Requirements
+
+The Triage Flow guides the CHW through symptoms and follow-up questions.
+
+Primary symptom clusters:
+
+1. Fever and sweating.
+2. Breathing problems.
+3. Vomiting or diarrhea.
+4. Confusion or collapse.
+5. Skin rash.
+6. Other common symptoms.
+
+The flow should ask 3 to 5 follow-up questions based on selected symptoms.
+
+Example contextual questions:
+
+1. Has it rained heavily in the last 7 days?
+2. Is the patient breathing fast?
+3. Has there been dust, smoke, or wildfire exposure?
+4. Is the patient unconscious?
+5. Is there severe dehydration?
+6. Is the patient a child under 5?
+7. Is there persistent vomiting?
+8. Is there blood in stool?
+9. Is there a high fever?
+10. Has the patient had seizures?
+
+### Acceptance Criteria
+
+1. Triage can be completed offline.
+2. The user should not need to type during the main triage flow.
+3. Each question should use large tap targets.
+4. User can go back to the previous question.
+5. User can cancel a triage session.
+6. No partial case should be lost unexpectedly if the app closes.
+
+---
+
+## 6.3 Result Screen
+
+### Requirements
+
+The Result Screen should show:
+
+1. Likely condition.
+2. Confidence or likelihood category.
+3. Recommended action.
+4. Red flags.
+5. Referral guidance.
+6. Care advice.
+7. Save case button.
+8. Disclaimer that the tool supports triage and does not replace clinical judgment.
+
+### Result Categories
+
+1. Monitor.
+2. Treat locally if within CHW scope.
+3. Refer to clinic.
+4. Urgent referral.
+5. Emergency escalation.
+
+### Acceptance Criteria
+
+1. Result is understandable in simple language.
+2. Result is color and icon coded.
+3. Critical red flags are visually prominent.
+4. User can save the case locally.
+5. The app prevents unsafe output, such as giving high-risk medication instructions beyond CHW scope.
+
+---
+
+## 6.4 Case Log
+
+### Requirements
+
+The Case Log stores all triage sessions locally first.
+
+Each case should include:
+
+1. Case ID.
+2. Local device ID.
+3. CHW user ID, where available.
+4. Timestamp.
+5. Patient age range.
+6. Patient sex, optional.
+7. Symptom inputs.
+8. Follow-up answers.
+9. Result.
+10. Recommended action.
+11. Referral flag.
+12. Sync status.
+13. Location, optional and consent-based.
+14. App version.
+15. Decision-tree version.
+
+### Data Exclusions
+
+Do not store:
+
+1. Patient name.
+2. Phone number.
+3. Full address.
+4. National ID number.
+5. Unnecessary personally identifiable information.
+
+### Acceptance Criteria
+
+1. Case is saved locally when offline.
+2. Case syncs automatically or manually when online.
+3. Unsynced cases are clearly marked.
+4. Failed syncs are retried safely.
+5. Duplicate cases are not created during repeated sync attempts.
+
+---
+
+## 6.5 Supervisor Dashboard
+
+### Requirements
+
+The supervisor dashboard is online-only.
+
+It should include:
+
+1. Secure login.
+2. Case summary metrics.
+3. Filter by date range.
+4. Filter by illness type.
+5. Filter by location where available.
+6. CHW-level aggregate statistics.
+7. Case cluster alerts.
+8. Export CSV, where authorized.
+9. Map view, if location data is enabled.
+10. Audit logs for sensitive actions.
+
+### Acceptance Criteria
+
+1. Supervisors can view only permitted data.
+2. Aggregated data must not reveal unnecessary patient-level information.
+3. Dashboard must respect Supabase Row Level Security.
+4. Exports must be permission-controlled.
+5. Dashboard must work efficiently with thousands of case records.
+
+---
+
+# 7. Illness Coverage
+
+## 7.1 Climate-Related Illnesses
+
+The first release should support:
+
+1. Heat exhaustion.
+2. Heatstroke.
+3. Malaria surge after rainfall.
+4. Dengue fever.
+5. Respiratory illness linked to dust, smoke, or poor air quality.
+6. Waterborne illness after flooding.
+
+## 7.2 Common Non-Climate Illnesses
+
+Recommended additions:
+
+1. Pneumonia.
+2. Diarrheal disease.
+3. Typhoid-like febrile illness.
+4. Measles-like rash illness.
+5. Severe dehydration.
+6. Malnutrition warning signs.
+7. Skin infection.
+8. Maternal danger signs, if CHW scope allows.
+
+---
+
+# 8. Key Workflows
+
+## 8.1 First-Time Setup
+
+1. CHW opens app link.
+2. App loads in browser.
+3. User is prompted to install the PWA.
+4. App shell, static assets, triage rules, and language files are cached.
+5. User chooses language.
+6. User accepts consent and data policy.
+7. User optionally enters CHW profile or clinic code.
+8. App is ready for offline use.
+
+---
+
+## 8.2 Offline Triage
+
+1. CHW opens installed PWA.
+2. App loads from cache.
+3. CHW taps “Start Triage.”
+4. CHW selects patient profile.
+5. CHW selects symptom cluster.
+6. App asks follow-up questions.
+7. App shows triage result.
+8. CHW saves case.
+9. Case is stored in IndexedDB.
+10. Case is marked as unsynced.
+
+---
+
+## 8.3 Online Enhanced Triage
+
+1. User follows the normal triage flow.
+2. App checks connectivity.
+3. If online, app may call backend triage service for enhanced reasoning.
+4. Backend validates input.
+5. Backend may use cached logic or approved AI-assisted triage logic.
+6. Result is returned.
+7. Case is saved locally and synced to Supabase.
+
+Important: AI responses must be constrained by approved decision rules. The app should not allow a general-purpose AI model to generate uncontrolled medical advice.
+
+---
+
+## 8.4 Sync Flow
+
+1. App detects internet connection.
+2. App checks for unsynced local cases.
+3. Each case is sent with an idempotency key.
+4. Backend validates payload.
+5. Backend writes case to Supabase.
+6. Backend returns success.
+7. Local case is marked as synced.
+8. If sync fails, retry with backoff.
+9. If duplicate detected, mark local case as synced without creating a new server record.
+
+---
+
+## 8.5 Supervisor Review
+
+1. Supervisor logs in.
+2. Dashboard loads aggregate case data.
+3. Supervisor filters by illness, date, location, or CHW.
+4. Supervisor identifies clusters.
+5. Supervisor flags cases or locations for escalation.
+6. System records action in audit log.
+
+---
+
+# 9. Functional Requirements
+
+## 9.1 Authentication and Authorization
+
+### Requirements
+
+1. Support CHW, supervisor, and admin roles.
+2. Use JWT plus Redis session tracking.
+3. Use short-lived access tokens.
+4. Use refresh token rotation.
+5. Store refresh/session state in Redis.
+6. Implement logout and session revocation.
+7. Enforce Supabase Row Level Security.
+8. Protect admin routes.
+9. Prevent privilege escalation.
+10. Log sensitive access events.
+
+### Roles
+
+| Role       | Permissions                                        |
+| ---------- | -------------------------------------------------- |
+| CHW        | Perform triage, save cases, sync own cases         |
+| Supervisor | View aggregate and authorized case data            |
+| Admin      | Manage users, locations, roles, system settings    |
+| System     | Execute sync, queue, caching, and monitoring tasks |
+
+---
+
+## 9.2 Offline Support
+
+### Requirements
+
+1. App shell must be cached.
+2. Triage rules must be cached.
+3. Language files must be cached.
+4. Case logs must be stored in IndexedDB.
+5. Local Storage may store non-sensitive preferences only.
+6. Sensitive data must not be stored in Local Storage.
+7. Sync must resume after connectivity returns.
+
+---
+
+## 9.3 Caching
+
+### Client-Side Caching
+
+Use:
+
+1. Service Worker Cache API for static assets.
+2. IndexedDB for case data.
+3. Local Storage for language preference, theme, and non-sensitive metadata.
+
+Do not store sensitive health records in Local Storage.
+
+### Server-Side Caching
+
+Use Redis for:
+
+1. Session records.
+2. Rate limits.
+3. Cached dashboard statistics.
+4. Triage rule version cache.
+5. Idempotency keys.
+6. Sync deduplication.
+7. Thundering herd protection locks.
+
+### Cache Invalidation
+
+1. Triage rules must have version numbers.
+2. Cached dashboard stats must use short TTLs.
+3. Session cache must expire automatically.
+4. User role changes must invalidate affected session data.
+5. Decision-tree updates must force client refresh or show update prompt.
+
+---
+
+## 9.4 Case Sync
+
+### Requirements
+
+1. Every local case must have a UUID.
+2. Every sync request must include an idempotency key.
+3. Server must reject malformed records.
+4. Server must deduplicate repeated submissions.
+5. Sync must use exponential backoff.
+6. Sync must avoid parallel duplicate uploads.
+7. Sync must be resumable.
+8. Sync must preserve local data until confirmed by server.
+
+---
+
+## 9.5 Admin and Monitoring
+
+### Requirements
+
+1. Health check endpoint.
+2. Error logging.
+3. Performance metrics.
+4. Sync failure metrics.
+5. Case volume metrics.
+6. Redis availability monitoring.
+7. Supabase query latency monitoring.
+8. Dashboard load time tracking.
+9. Suspicious activity detection.
+10. Audit logs.
+
+---
+
+# 10. Non-Functional Requirements
+
+## 10.1 Performance
+
+1. Initial page load should be lightweight.
+2. Core app should work on low-end devices.
+3. Triage flow interactions should feel instant.
+4. Dashboard queries must use pagination.
+5. Heavy reports must not block main app usage.
+6. Use indexes for case search/filter fields.
+7. Avoid excessive client-side bundle size.
+
+## 10.2 Scalability
+
+The app should handle thousands of concurrent users through:
+
+1. Stateless Node.js API design.
+2. Redis-backed sessions and rate limiting.
+3. Supabase indexes.
+4. Cached aggregate dashboard metrics.
+5. Pagination.
+6. Queue-safe sync logic.
+7. Idempotent writes.
+8. Backpressure during sync spikes.
+9. Edge-friendly deployment on Vercel.
+10. Efficient PWA caching to reduce repeated server hits.
+
+## 10.3 Reliability
+
+1. App must not lose cases when offline.
+2. Sync failure must not delete local records.
+3. Server failure should return safe error messages.
+4. Redis failure should degrade gracefully where possible.
+5. Supabase write failure should retry safely.
+6. Duplicate sync should not create duplicate records.
+7. Partial failures should be logged and recoverable.
+
+## 10.4 Security
+
+The app must be hardened against:
+
+1. OWASP Top 10 risks.
+2. SQL injection.
+3. XSS.
+4. CSRF.
+5. Broken authentication.
+6. Broken access control.
+7. Data leakage.
+8. Insecure direct object references.
+9. Session fixation.
+10. JWT theft and replay.
+11. Rate-limit bypass.
+12. Row Level Security misconfiguration.
+13. Sensitive data exposure in browser storage.
+14. Misconfigured CORS.
+15. Dependency vulnerabilities.
+
+---
+
+# 11. Security Requirements
+
+## 11.1 Input Validation
+
+1. Validate all client input on the server.
+2. Use schema validation, for example Zod or Joi.
+3. Reject unknown fields unless explicitly allowed.
+4. Normalize user input.
+5. Sanitize any displayed text.
+6. Never trust client-generated role or permission fields.
+
+## 11.2 XSS Protection
+
+1. Escape rendered content.
+2. Avoid unsafe HTML rendering.
+3. Use Content Security Policy.
+4. Sanitize translated strings if loaded dynamically.
+5. Prevent injection into dashboard tables, exports, and logs.
+
+## 11.3 CSRF Protection
+
+1. Use same-site cookies where cookies are used.
+2. Use CSRF tokens for state-changing browser requests if cookie auth is used.
+3. For bearer-token APIs, enforce CORS and origin checks.
+
+## 11.4 JWT Security
+
+1. Use short expiry for access tokens.
+2. Rotate refresh tokens.
+3. Store token revocation state in Redis.
+4. Sign tokens with strong secrets.
+5. Separate access and refresh token secrets.
+6. Never expose secrets to frontend bundles.
+7. Invalidate sessions after role changes.
+
+## 11.5 Supabase Row Level Security
+
+RLS must enforce:
+
+1. CHWs can insert and read their own cases.
+2. Supervisors can read cases only within assigned clinic, region, or program.
+3. Admins can manage users only within allowed scope.
+4. Anonymous users cannot access case records.
+5. Service role keys must never be exposed client-side.
+
+Every table containing sensitive data must have RLS enabled.
+
+## 11.6 Data Privacy
+
+1. Store minimum patient data.
+2. Avoid patient names.
+3. Avoid phone numbers.
+4. Avoid exact addresses unless absolutely required.
+5. Encrypt data in transit.
+6. Consider encrypting sensitive fields at rest.
+7. Log access to sensitive records.
+8. Provide data retention settings.
+9. Allow deletion or anonymization where required.
+
+---
+
+# 12. Data Model
+
+## 12.1 Users Table
+
+Fields:
+
+1. `id`
+2. `email`
+3. `role`
+4. `name`
+5. `clinic_id`
+6. `region_id`
+7. `status`
+8. `created_at`
+9. `updated_at`
+
+## 12.2 Cases Table
+
+Fields:
+
+1. `id`
+2. `local_case_id`
+3. `idempotency_key`
+4. `chw_user_id`
+5. `clinic_id`
+6. `region_id`
+7. `patient_age_range`
+8. `patient_sex`
+9. `symptoms`
+10. `answers`
+11. `triage_result`
+12. `recommended_action`
+13. `risk_level`
+14. `referral_required`
+15. `location_lat`, optional
+16. `location_lng`, optional
+17. `location_accuracy`, optional
+18. `decision_tree_version`
+19. `app_version`
+20. `created_at`
+21. `synced_at`
+
+## 12.3 Clinics Table
+
+Fields:
+
+1. `id`
+2. `name`
+3. `region_id`
+4. `created_at`
+5. `updated_at`
+
+## 12.4 Regions Table
+
+Fields:
+
+1. `id`
+2. `name`
+3. `country`
+4. `created_at`
+5. `updated_at`
+
+## 12.5 Audit Logs Table
+
+Fields:
+
+1. `id`
+2. `actor_user_id`
+3. `action`
+4. `target_type`
+5. `target_id`
+6. `metadata`
+7. `ip_address`
+8. `user_agent`
+9. `created_at`
+
+## 12.6 Triage Rules Table
+
+Fields:
+
+1. `id`
+2. `version`
+3. `language`
+4. `rules_json`
+5. `is_active`
+6. `created_by`
+7. `created_at`
+
+---
+
+# 13. API Requirements
+
+## 13.1 Auth APIs
+
+### `POST /api/auth/login`
+
+Authenticates user and creates Redis-backed session.
+
+### `POST /api/auth/refresh`
+
+Rotates refresh token and issues new access token.
+
+### `POST /api/auth/logout`
+
+Revokes session in Redis.
+
+---
+
+## 13.2 Case APIs
+
+### `POST /api/cases/sync`
+
+Syncs one or more local cases.
+
+Requirements:
+
+1. Validate payload.
+2. Require authenticated user.
+3. Require idempotency key.
+4. Deduplicate by `local_case_id` and `idempotency_key`.
+5. Insert only authorized records.
+6. Return per-case success/failure status.
+
+### `GET /api/cases`
+
+Returns authorized cases with pagination.
+
+Required query parameters:
+
+1. `limit`
+2. `cursor`
+3. Optional `date_from`
+4. Optional `date_to`
+5. Optional `risk_level`
+6. Optional `illness_type`
+
+---
+
+## 13.3 Dashboard APIs
+
+### `GET /api/dashboard/summary`
+
+Returns aggregate metrics.
+
+### `GET /api/dashboard/clusters`
+
+Returns possible case clusters.
+
+### `GET /api/dashboard/export`
+
+Exports authorized data.
+
+Export must be permission-gated and audit-logged.
+
+---
+
+## 13.4 Triage APIs
+
+### `GET /api/triage/rules`
+
+Returns current triage rules version.
+
+### `POST /api/triage/evaluate`
+
+Evaluates symptom input using approved rules and optionally AI-assisted enhancement.
+
+Requirements:
+
+1. Validate input.
+2. Enforce rate limits.
+3. Use cached result for common flows.
+4. Never return unrestricted medical advice.
+5. Log model failures without exposing sensitive input unnecessarily.
+
+---
+
+# 14. Redis Usage
+
+Redis should be used for:
+
+1. Session state.
+2. Refresh token rotation metadata.
+3. JWT revocation list.
+4. Rate limiting.
+5. Idempotency keys.
+6. Sync locks.
+7. Cached dashboard summaries.
+8. Queue state where needed.
+9. Thundering herd protection.
+10. Temporary retry state.
+
+## Redis Failure Handling
+
+If Redis is unavailable:
+
+1. Authenticated requests should fail safely where session validation requires Redis.
+2. Public cached assets should still load.
+3. Offline triage should continue.
+4. Sync should pause and retry later.
+5. Dashboard should show degraded state instead of crashing.
+
+---
+
+# 15. Race Conditions and Idempotency
+
+## Risks
+
+1. Same case syncing multiple times.
+2. Multiple tabs trying to sync at once.
+3. User double-tapping save.
+4. Network retry causing duplicate inserts.
+5. Role changed while user still has old JWT.
+6. Multiple workers updating same aggregate.
+7. Redis lock expiry during long-running sync.
+
+## Required Mitigations
+
+1. Use unique `local_case_id`.
+2. Use unique `idempotency_key`.
+3. Add database unique constraints.
+4. Add Redis sync locks.
+5. Disable save button during save operation.
+6. Use atomic database operations.
+7. Use server-side permission checks.
+8. Use retry-safe sync design.
+9. Use optimistic UI only when rollback is possible.
+10. Recheck user role on sensitive actions.
+
+---
+
+# 16. Accounting and Financial Integrity
+
+Even if the first version has no payments, the system should be designed safely for future grant reporting, paid deployments, subscriptions, reimbursements, or billing.
+
+Requirements:
+
+1. Never calculate financial totals only on the client.
+2. Use integer minor units for money, for example kobo or cents.
+3. Use immutable transaction records if payments are added later.
+4. Use idempotency keys for all payment or reimbursement actions.
+5. Audit all financial changes.
+6. Avoid floating-point math for money.
+7. Protect against double billing or duplicate reimbursements.
+8. Use reconciliation reports.
+9. Keep financial permissions separate from health-data permissions.
+
+---
+
+# 17. Error Handling
+
+## General Requirements
+
+1. All API errors must return structured JSON.
+2. User-facing errors must be simple and non-technical.
+3. Sensitive internal error details must not be exposed.
+4. Errors must be logged with request ID.
+5. Retryable errors must be identified.
+6. Offline errors must explain that data remains saved locally.
+7. Sync failures must not delete local cases.
+
+## Example Error Types
+
+1. Validation error.
+2. Authentication error.
+3. Authorization error.
+4. Network error.
+5. Sync conflict.
+6. Duplicate record.
+7. Redis unavailable.
+8. Supabase unavailable.
+9. AI service unavailable.
+10. Rate limit exceeded.
+
+---
+
+# 18. Monitoring and Observability
+
+## Required Metrics
+
+1. Active users.
+2. Triage sessions started.
+3. Triage sessions completed.
+4. Cases saved locally.
+5. Cases synced successfully.
+6. Sync failures.
+7. Duplicate sync attempts.
+8. API latency.
+9. Redis latency.
+10. Supabase query latency.
+11. Dashboard query latency.
+12. Auth failures.
+13. Rate-limit events.
+14. Error rate by endpoint.
+15. PWA install count, where available.
+16. Offline usage rate.
+
+## Required Logs
+
+1. API request logs.
+2. Auth logs.
+3. Sync logs.
+4. Error logs.
+5. Audit logs.
+6. Security events.
+7. Dashboard export logs.
+8. Admin action logs.
+
+---
+
+# 19. Common Bugs to Guard Against
+
+## Offline/PWA Bugs
+
+1. App shows old triage rules after update.
+2. Service Worker caches broken build.
+3. Case disappears after browser storage cleanup.
+4. Local Storage used for sensitive data.
+5. IndexedDB migration breaks older cases.
+6. Sync status becomes incorrect after failed request.
+7. Multiple tabs duplicate sync.
+
+## Auth Bugs
+
+1. JWT remains valid after logout.
+2. Refresh token reuse is not detected.
+3. Role changes do not invalidate existing sessions.
+4. Client-side route protection without server-side checks.
+5. Service role key exposed to frontend.
+
+## Data Bugs
+
+1. Duplicate cases.
+2. Wrong CHW assigned to case.
+3. Missing clinic or region scope.
+4. Incorrect date/time due to timezone handling.
+5. Corrupted JSON in symptoms or answers.
+6. Failed migration causing case loss.
+
+## Dashboard Bugs
+
+1. Loading all records at once.
+2. Missing pagination.
+3. Aggregate numbers not matching raw records.
+4. Supervisor seeing unauthorized regions.
+5. CSV injection in exported files.
+6. Slow filters without database indexes.
+
+## Security Bugs
+
+1. XSS through case notes or translated text.
+2. SQL injection through filters.
+3. CSRF on auth or export endpoints.
+4. CORS too permissive.
+5. Rate limits missing on login.
+6. RLS disabled or incomplete.
+7. Sensitive error messages exposed.
+
+---
+
+# 20. Scalability Requirements
+
+## Expected Load
+
+The system should be designed to handle:
+
+1. Thousands of CHWs using the app.
+2. Bursts of sync activity when connectivity returns.
+3. Many devices syncing after training sessions.
+4. Supervisor dashboard usage during outbreaks.
+5. Repeated offline/online transitions.
+
+## Scalability Measures
+
+1. Use Redis rate limiting.
+2. Use sync batching.
+3. Use exponential backoff.
+4. Use database indexes.
+5. Use pagination everywhere.
+6. Cache dashboard aggregates.
+7. Avoid real-time subscriptions unless needed.
+8. Use serverless-friendly Redis through Upstash.
+9. Avoid long-running Vercel functions.
+10. Move heavy analytics to background jobs if needed.
+
+---
+
+# 21. Database Indexing Requirements
+
+Recommended indexes:
+
+1. `cases.chw_user_id`
+2. `cases.clinic_id`
+3. `cases.region_id`
+4. `cases.created_at`
+5. `cases.risk_level`
+6. `cases.referral_required`
+7. `cases.local_case_id`
+8. `cases.idempotency_key`
+9. Composite index on `region_id, created_at`
+10. Composite index on `clinic_id, created_at`
+11. Unique index on `chw_user_id, local_case_id`
+12. Unique index on `idempotency_key`
+
+---
+
+# 22. Deployment Requirements
+
+## GitHub Actions
+
+CI/CD should include:
+
+1. Install dependencies.
+2. Type check.
+3. Lint.
+4. Unit tests.
+5. Security audit.
+6. Build.
+7. Run migration checks.
+8. Deploy to Vercel.
+
+## Vercel
+
+Requirements:
+
+1. Separate preview and production environments.
+2. Environment variables set securely.
+3. No secrets committed to repository.
+4. Production deployment only from protected branch.
+5. Rollback plan for failed deployments.
+
+## Supabase
+
+Requirements:
+
+1. RLS enabled before production.
+2. Migrations tracked in source control.
+3. Service role key used only server-side.
+4. Backups enabled.
+5. Database policies tested.
+
+---
+
+# 23. Code Quality Requirements
+
+## Commenting Standard
+
+Code comments should be concise and useful.
+
+Use comments for:
+
+1. Complex logic.
+2. Security-sensitive logic.
+3. Race-condition prevention.
+4. Idempotency handling.
+5. Non-obvious business rules.
+6. Workarounds.
+7. Known limitations.
+
+Avoid comments for obvious code.
+
+Example:
+
+```js
+// Prevent duplicate uploads when the user opens the app in multiple tabs.
+const lock = await acquireSyncLock(localCaseId);
+```
+
+## General Code Requirements
+
+1. Use TypeScript where possible.
+2. Use strict mode.
+3. Use schema validation.
+4. Use centralized error handling.
+5. Use reusable API clients.
+6. Avoid duplicated business logic.
+7. Keep triage rules versioned.
+8. Separate UI, business logic, sync logic, and storage logic.
+9. Write unit tests for triage rules.
+10. Write integration tests for sync and auth.
+
+---
+
+# 24. Testing Requirements
+
+## Unit Tests
+
+Cover:
+
+1. Triage decision rules.
+2. Risk-level calculations.
+3. Validation schemas.
+4. Local case creation.
+5. Idempotency key generation.
+6. Permission logic.
+7. Financial math helpers, if added.
+
+## Integration Tests
+
+Cover:
+
+1. Login.
+2. Logout.
+3. Refresh token rotation.
+4. Case sync.
+5. Duplicate sync attempt.
+6. RLS access checks.
+7. Dashboard filters.
+8. CSV export permissions.
+
+## Offline Tests
+
+Cover:
+
+1. App loads offline.
+2. Triage works offline.
+3. Case saves offline.
+4. Sync resumes online.
+5. Sync does not duplicate cases.
+6. Failed sync preserves local data.
+
+## Security Tests
+
+Cover:
+
+1. XSS attempts.
+2. SQL injection attempts.
+3. CSRF attempts.
+4. Broken access control.
+5. Unauthorized dashboard access.
+6. RLS bypass attempts.
+7. JWT replay.
+8. Refresh token reuse.
+9. Rate-limit bypass.
+
+## Load Tests
+
+Cover:
+
+1. Thousands of concurrent API requests.
+2. Sync bursts.
+3. Dashboard aggregate queries.
+4. Redis rate-limit behavior.
+5. Supabase query performance.
+
+---
+
+# 25. MVP Scope
+
+## MVP Includes
+
+1. Mobile-first PWA.
+2. Home screen.
+3. Language selector.
+4. Offline triage flow.
+5. Result screen.
+6. Local case log.
+7. Supabase sync.
+8. JWT plus Redis session handling.
+9. Basic supervisor dashboard.
+10. RLS-protected case access.
+11. Basic metrics and logging.
+12. GitHub Actions to Vercel deployment.
+
+## MVP Excludes
+
+1. Payments.
+2. Full hospital EMR integration.
+3. Complex AI diagnosis.
+4. Full national disease surveillance integration.
+5. Advanced geospatial cluster detection.
+6. Native Android/iOS apps.
+7. Patient identity management.
+
+---
+
+# 26. Future Enhancements
+
+1. Outbreak alert integration.
+2. SMS fallback.
+3. Voice-guided triage.
+4. Audio translations.
+5. Supervisor push notifications.
+6. Advanced analytics.
+7. Clinic referral tracking.
+8. CHW training mode.
+9. In-app learning modules.
+10. AI-assisted supervisor insights.
+11. Native mobile wrapper if required.
+12. Offline map support.
+
+---
+
+# 27. Risks and Mitigations
+
+| Risk                          | Impact | Mitigation                                                              |
+| ----------------------------- | -----: | ----------------------------------------------------------------------- |
+| Unsafe medical recommendation |   High | Use approved decision trees, clinical review, constrained AI            |
+| Data leakage                  |   High | Minimal data, RLS, encryption, secure storage                           |
+| Duplicate case sync           | Medium | Idempotency keys, unique constraints, Redis locks                       |
+| Poor offline behavior         |   High | IndexedDB, service worker tests, sync retry logic                       |
+| Supabase RLS failure          |   High | Policy tests, least privilege, no service key in frontend               |
+| Redis outage                  | Medium | Graceful degradation, retry logic                                       |
+| Dashboard slow at scale       | Medium | Indexes, pagination, Redis aggregates                                   |
+| XSS in dashboard              |   High | Escape output, sanitize input, CSP                                      |
+| CSRF/auth attacks             |   High | Secure cookies or strict bearer-token design                            |
+| Thundering herd after outage  | Medium | Backoff, batching, Redis locks                                          |
+| Memory leaks on mobile        | Medium | Avoid heavy client state, cleanup listeners                             |
+| Expensive hosting             | Medium | Cache aggressively, avoid heavy server work, serverless-friendly design |
+
+---
+
+# 28. Definition of Done
+
+A feature is done only when:
+
+1. It works on mobile.
+2. It works offline where required.
+3. It handles loading, empty, success, and error states.
+4. It has validation.
+5. It has tests.
+6. It respects RLS and permissions.
+7. It logs meaningful errors.
+8. It does not expose secrets.
+9. It does not duplicate data under retry.
+10. It has safe failure behavior.
+11. It has concise comments where logic is non-obvious.
+12. It has been reviewed for OWASP Top 10 risks.
+13. It aligns with the project’s cheap-hosting constraints.
+14. It is documented if it intentionally deviates from project guidelines.
+
+---
+
+# 29. Suggested Build Sequence
+
+## Phase 1: Foundation
+
+1. Set up repo.
+2. Configure Next.js/Node.js app.
+3. Configure Supabase.
+4. Configure Redis/Upstash.
+5. Configure GitHub Actions.
+6. Configure Vercel deployment.
+7. Add basic auth and roles.
+
+## Phase 2: PWA and Offline Shell
+
+1. Add PWA manifest.
+2. Add Service Worker.
+3. Cache app shell.
+4. Cache language files.
+5. Add offline status.
+6. Add install prompt.
+
+## Phase 3: Triage MVP
+
+1. Build Home screen.
+2. Build symptom selection.
+3. Build follow-up question flow.
+4. Build result screen.
+5. Add decision-tree logic.
+6. Add triage versioning.
+
+## Phase 4: Case Log and Sync
+
+1. Add IndexedDB local storage.
+2. Save cases offline.
+3. Add sync queue.
+4. Add idempotent server sync.
+5. Add Redis sync locks.
+6. Add Supabase case records.
+
+## Phase 5: Supervisor Dashboard
+
+1. Add supervisor login.
+2. Add aggregate metrics.
+3. Add filters.
+4. Add case list with pagination.
+5. Add export with audit logs.
+6. Add RLS tests.
+
+## Phase 6: Hardening
+
+1. Security review.
+2. Load testing.
+3. Offline testing.
+4. RLS penetration tests.
+5. Dependency audit.
+6. Monitoring setup.
+7. Production deployment checklist.
+
+---
+
+# 30. Production Readiness Checklist
+
+## Security
+
+* [ ] RLS enabled on all sensitive tables.
+* [ ] Service role key never exposed.
+* [ ] JWT expiry configured.
+* [ ] Redis session revocation works.
+* [ ] Refresh token rotation works.
+* [ ] Rate limits enabled.
+* [ ] CSP configured.
+* [ ] CORS restricted.
+* [ ] Input validation added.
+* [ ] Audit logs enabled.
+* [ ] Export permissions enforced.
+
+## Offline
+
+* [ ] App shell works offline.
+* [ ] Triage rules cached.
+* [ ] Cases saved to IndexedDB.
+* [ ] Sync resumes after reconnect.
+* [ ] Duplicate sync prevented.
+* [ ] Failed sync does not delete local data.
+
+## Scalability
+
+* [ ] Dashboard queries paginated.
+* [ ] Database indexes added.
+* [ ] Redis caching added.
+* [ ] Sync batching added.
+* [ ] Backoff implemented.
+* [ ] Load tests passed.
+
+## Reliability
+
+* [ ] Graceful error messages.
+* [ ] Structured API errors.
+* [ ] Request IDs in logs.
+* [ ] Supabase failures handled.
+* [ ] Redis failures handled.
+* [ ] Deployment rollback plan exists.
+
+## Code Quality
+
+* [ ] TypeScript strict mode.
+* [ ] Linting.
+* [ ] Unit tests.
+* [ ] Integration tests.
+* [ ] Security tests.
+* [ ] Concise comments.
+* [ ] Docs updated.
+* [ ] Environment variables documented.
+
+---
+
+# 31. Summary
+
+Asibi should be built as a secure, mobile-first, offline-capable triage PWA using Node.js, Supabase, Redis, local caching, JWT sessions, and Vercel deployment through GitHub Actions. The product must be designed from the start for poor connectivity, safe medical decision support, data minimization, Row Level Security, idempotent sync, scalability, graceful failure handling, and cheap hosting.
+
+The biggest engineering priorities are:
+
+1. Offline reliability.
+2. Secure case sync.
+3. RLS correctness.
+4. Idempotency.
+5. Safe triage logic.
+6. Redis-backed session and caching architecture.
+7. Protection against duplicate records, data leaks, XSS, CSRF, injection, race conditions, and thundering herd issues.
+
