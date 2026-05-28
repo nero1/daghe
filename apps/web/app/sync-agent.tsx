@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { readCases } from "@/lib/cases";
 import { ensureCsrfToken } from "@/lib/csrf";
 
-const LOCK_KEY = "asibi_sync_lock";
+const LOCK_KEY = "daghe_sync_lock";
 const BATCH_SIZE = 50;
 
 function acquireLock(): boolean {

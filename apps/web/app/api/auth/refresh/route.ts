@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const requestId = requestIdFrom(request);
   if (!(await verifyCsrf(request))) return fail(403, "CSRF_INVALID", "CSRF validation failed", requestId);
   // Refresh uses long-lived token from secure cookie, not request body.
-  const refreshToken = (await cookies()).get("asibi_refresh_token")?.value;
+  const refreshToken = (await cookies()).get("daghe_refresh_token")?.value;
   if (!refreshToken) return fail(400, "VALIDATION_ERROR", "Missing refresh token", requestId);
 
   const url = process.env.SUPABASE_URL;

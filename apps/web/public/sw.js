@@ -1,50 +1,49 @@
 // Service Worker version — bump this string whenever the app shell changes
 // so returning users get fresh assets and the update prompt appears.
-const VERSION = "asibi-shell-mpd9u9qu";
+const VERSION = "daghe-shell-mppt87g7";
 
 // App shell: routes and assets that must be available offline.
-const SHELL_URLS = ["/", "/app", "/demo", "/triage", "/cases", "/register", "/admin"];
+const SHELL_URLS = ["/", "/app", "/demo", "/screening", "/encounters", "/settings", "/register", "/admin", "/onboarding", "/help"];
 
-// Cache name used to store the last known triage rules version.
-const RULES_VERSION_CACHE = "asibi-rules-version-v1";
+// Cache name used to store the last known model version.
+const MODEL_VERSION_CACHE = "daghe-model-version-v1";
 
 // On install: cache all shell URLs.
 // Do NOT call skipWaiting here — the update prompt in sw-register.tsx lets the
-// user choose when to apply the update so an in-progress triage is never interrupted.
+// user choose when to apply the update so an in-progress screening is never interrupted.
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(VERSION).then((cache) => cache.addAll(SHELL_URLS))
   );
 });
 
-// On activate: delete all caches from older versions, claim clients, and check triage rules version.
+// On activate: delete all caches from older versions, claim clients, and check model version.
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== VERSION && k !== RULES_VERSION_CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim()).then(() => checkTriageRulesVersion())
+      Promise.all(keys.filter((k) => k !== VERSION && k !== MODEL_VERSION_CACHE).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim()).then(() => checkModelVersion())
   );
 });
 
-async function checkTriageRulesVersion() {
+async function checkModelVersion() {
   try {
-    const response = await fetch("/api/triage/rules", { cache: "no-store" });
+    const response = await fetch("/api/modules/version", { cache: "no-store" });
     if (!response.ok) return;
     const body = await response.json();
-    const newVersion = body?.data?.version ?? body?.version;
+    const newVersion = body?.data?.version;
     if (!newVersion) return;
 
-    const versionCache = await caches.open(RULES_VERSION_CACHE);
-    const stored = await versionCache.match("triage-rules-version");
+    const versionCache = await caches.open(MODEL_VERSION_CACHE);
+    const stored = await versionCache.match("model-version");
     const oldVersion = stored ? await stored.text() : null;
 
-    // Always store the latest version.
-    await versionCache.put("triage-rules-version", new Response(String(newVersion)));
+    await versionCache.put("model-version", new Response(String(newVersion)));
 
     if (oldVersion && oldVersion !== String(newVersion)) {
       const clients = await self.clients.matchAll({ type: "window" });
       clients.forEach((client) => {
-        client.postMessage({ type: "TRIAGE_RULES_UPDATED", version: newVersion });
+        client.postMessage({ type: "MODEL_VERSION_UPDATED", version: newVersion });
       });
     }
   } catch {
@@ -59,7 +58,7 @@ self.addEventListener("fetch", (event) => {
   // Never intercept non-GET requests or cross-origin requests.
   if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  // API and auth routes must always go to the network (no stale data for health decisions).
+  // API and auth routes must always go to the network (no stale data for clinical decisions).
   if (url.pathname.startsWith("/api/")) return;
 
   // For navigations and shell assets: cache-first, fall back to network.

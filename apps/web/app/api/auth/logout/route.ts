@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   const anon = process.env.SUPABASE_ANON_KEY;
   if (!url || !anon) return fail(500, "SERVER_NOT_CONFIGURED", "Auth not configured", requestId);
 
-  const token = (await cookies()).get("asibi_access_token")?.value;
+  const token = (await cookies()).get("daghe_access_token")?.value;
   if (token) {
     // Revoke in Redis so the JWT cannot be replayed before its natural expiry.
     await revokeToken(token);

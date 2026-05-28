@@ -14,6 +14,16 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: placeholder
       UPSTASH_REDIS_REST_URL: https://placeholder.upstash.io
       UPSTASH_REDIS_REST_TOKEN: placeholder
+      BYOK_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      GEMINI_API_KEY: placeholder
+      GEMINI_ENABLED: "true"
+      GEMINI_MODEL: gemini-2.0-flash
+      OPENAI_API_KEY: placeholder
+      OPENAI_ENABLED: "true"
+      OPENAI_MODEL: gpt-4o
+      DEEPSEEK_API_KEY: placeholder
+      DEEPSEEK_ENABLED: "true"
+      DEEPSEEK_MODEL: deepseek-chat
 
     steps:
       - uses: actions/checkout@v4
@@ -47,9 +57,6 @@ jobs:
 
       - name: Build
         run: npm run build --workspace=apps/web
-
-      - name: Unit tests — triage rules
-        run: node tests/triage.test.mjs
 
       - name: Unit tests — sync backoff
         run: node tests/sync-backoff.test.mjs

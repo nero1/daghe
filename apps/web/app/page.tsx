@@ -6,14 +6,14 @@ import { strings, type Lang, getSavedLang, saveLang, getAvailableLanguages } fro
 
 function getSavedTheme(): "light" | "dark" {
   if (typeof window === "undefined") return "light";
-  return (window.localStorage.getItem("asibi_theme") as "light" | "dark") ?? "light";
+  return (window.localStorage.getItem("daghe_theme") as "light" | "dark") ?? "light";
 }
 
 function saveTheme(theme: "light" | "dark") {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem("asibi_theme", theme);
+  window.localStorage.setItem("daghe_theme", theme);
   document.documentElement.setAttribute("data-theme", theme);
-  window.dispatchEvent(new CustomEvent("asibi:themechange", { detail: theme }));
+  window.dispatchEvent(new CustomEvent("daghe:themechange", { detail: theme }));
 }
 
 function SunIcon() {
@@ -66,7 +66,7 @@ export default function LandingPage() {
       {/* Top bar */}
       <div className="landing-topbar">
         <div className="landing-topbar-inner">
-          <Link href="/" className="navbar-brand">Asibi</Link>
+          <Link href="/" className="navbar-brand">Daghe</Link>
           <div className="landing-topbar-right">
             <div className="landing-lang-select">
               <label htmlFor="lang-select" style={{ margin: 0 }}>{t.language}:</label>

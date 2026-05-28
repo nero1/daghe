@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Asibi",
-    short_name: "Asibi",
-    description: "Offline CHW climate triage",
+    name: "Daghe",
+    short_name: "Daghe",
+    description: "AI-assisted visual diagnostic tool for cervical cancer screening",
     start_url: "/",
     display: "standalone",
     background_color: "#f9fafb",

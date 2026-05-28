@@ -1,14 +1,14 @@
 {
-  "name": "asibi",
+  "name": "daghe",
   "private": true,
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @asibi/web",
-    "build": "npm run build -w @asibi/web",
-    "lint": "npm run lint -w @asibi/web",
-    "typecheck": "npm run typecheck -w @asibi/web"
+    "dev": "npm run dev -w @daghe/web",
+    "build": "npm run build -w @daghe/web",
+    "lint": "npm run lint -w @daghe/web",
+    "typecheck": "npm run typecheck -w @daghe/web"
   }
 }

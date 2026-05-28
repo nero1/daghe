@@ -1,5 +1,5 @@
 {
-  "name": "@asibi/web",
+  "name": "@daghe/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -15,13 +15,17 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "zod": "3.23.8",
-    "@asibi/shared": "0.1.0",
-    "@upstash/redis": "1.34.9"
+    "@daghe/shared": "0.1.0",
+    "@upstash/redis": "1.34.9",
+    "dexie": "^4.0.0",
+    "decimal.js": "^10.4.3",
+    "dompurify": "^3.1.0"
   },
   "devDependencies": {
     "@types/node": "22.15.2",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
+    "@types/dompurify": "^3.0.5",
     "typescript": "5.8.3"
   }
 }

@@ -119,8 +119,8 @@ export default function AppHomePage() {
       )}
 
       <nav className="login-nav">
-        <Link href="/triage" className="login-nav-link">{t.triage}</Link>
-        <Link href="/cases" className="login-nav-link">{t.cases}</Link>
+        <Link href="/screening" className="login-nav-link">Screening</Link>
+        <Link href="/encounters" className="login-nav-link">{t.cases}</Link>
         <Link href="/dashboard" className="login-nav-link">{t.dashboard}</Link>
         {online && <Link href="/admin" className="login-nav-link">{t.adminTitle}</Link>}
       </nav>

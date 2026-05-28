@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { evaluateTriage, clusterQuestions, type TriageInput, type TriageResult } from "@asibi/shared";
+import { evaluateTriage, clusterQuestions, type TriageInput, type TriageResult } from "@daghe/shared";
 import { strings, type Lang, getSavedLang, saveLang, getAvailableLanguages, triageOutcomes } from "@/lib/i18n";
 
 type Cluster = TriageInput["cluster"];
@@ -147,7 +147,7 @@ function buildManualSteps(cluster: Cluster | null): ManualStep[] {
   return [...base, ...qs.map((_, i) => `q-${i}` as ManualStep), "result"];
 }
 
-const BANNER_DISMISS_KEY = "asibi_demo_banner_dismissed";
+const BANNER_DISMISS_KEY = "daghe_demo_banner_dismissed";
 const BANNER_DISMISS_DURATION = 24 * 60 * 60 * 1000;
 
 function isBannerDismissed(): boolean {

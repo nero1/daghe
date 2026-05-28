@@ -12,19 +12,19 @@ const scopeCache = new Map<string, CachedScope>();
 const AUTH_CACHE_TTL_MS = 15_000;
 
 export function setAuthCookies(response: NextResponse, accessToken: string, refreshToken: string) {
-  response.cookies.set("asibi_access_token", accessToken, { httpOnly: true, secure: true, sameSite: "lax", path: "/" });
-  response.cookies.set("asibi_refresh_token", refreshToken, { httpOnly: true, secure: true, sameSite: "lax", path: "/" });
+  response.cookies.set("daghe_access_token", accessToken, { httpOnly: true, secure: true, sameSite: "lax", path: "/" });
+  response.cookies.set("daghe_refresh_token", refreshToken, { httpOnly: true, secure: true, sameSite: "lax", path: "/" });
 }
 
 export function clearAuthCookies(response: NextResponse) {
-  response.cookies.set("asibi_access_token", "", { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 0 });
-  response.cookies.set("asibi_refresh_token", "", { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 0 });
+  response.cookies.set("daghe_access_token", "", { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 0 });
+  response.cookies.set("daghe_refresh_token", "", { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 0 });
 }
 
 export async function getBearerToken(authHeader: string | null): Promise<string | null> {
   if (authHeader?.startsWith("Bearer ")) return authHeader.replace("Bearer ", "");
   const cookieStore = await cookies();
-  return cookieStore.get("asibi_access_token")?.value ?? null;
+  return cookieStore.get("daghe_access_token")?.value ?? null;
 }
 
 export async function requireAuthenticatedUser(
