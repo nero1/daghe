@@ -23,4 +23,5 @@ export const cervicalViaModule: ConditionModule = {
   exposureMin: 30,
   exposureMax: 220,
   roiConfidenceThreshold: 0.5,
+  referenceTextPath: "/modules/cervical-via/reference/en.md",
 };

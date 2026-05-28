@@ -164,6 +164,56 @@ async function callOpenAI(
   return { result: JSON.parse(text) as Record<string, unknown>, inputTokens, outputTokens };
 }
 
+async function callDeepSeek(
+  imageBase64: string,
+  patientAgeBand: string,
+  screeningContext: string,
+  apiKey: string
+): Promise<{ result: Record<string, unknown>; inputTokens: number; outputTokens: number }> {
+  const url = `${AI_CONSTANTS.deepseekBaseUrl}/chat/completions`;
+  if (!isAllowedAiUrl(url)) throw new Error("SSRF guard: blocked URL");
+
+  // DeepSeek uses OpenAI-compatible API; vision handled via image_url content type
+  const body = {
+    model: AI_CONSTANTS.deepseekModel,
+    response_format: { type: "json_object" },
+    temperature: 0.1,
+    messages: [
+      { role: "system", content: buildSystemPrompt() },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: buildUserPrompt(patientAgeBand, screeningContext) },
+          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
+        ],
+      },
+    ],
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`DeepSeek error ${res.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const json = await res.json() as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+
+  const text = json.choices?.[0]?.message?.content ?? "{}";
+  const inputTokens = json.usage?.prompt_tokens ?? 0;
+  const outputTokens = json.usage?.completion_tokens ?? 0;
+
+  return { result: JSON.parse(text) as Record<string, unknown>, inputTokens, outputTokens };
+}
+
 function calcCost(provider: "gemini" | "gpt4o" | "deepseek", inputTokens: number, outputTokens: number): string {
   const rates = AI_CONSTANTS.costRates[provider];
   const inputCost = new Decimal(rates.inputPer1k).mul(inputTokens).div(1000);
@@ -229,12 +279,13 @@ export async function POST(request: NextRequest) {
 
   const { imageBase64, encounterId, patientAgeBand, screeningContext } = body;
 
-  // Attempt Gemini first, fall back to OpenAI
-  let provider: "gemini" | "gpt4o" = "gemini";
+  // Attempt Gemini → OpenAI → DeepSeek fallback chain (steps 2-3 of PRD 5-step chain)
+  let provider: "gemini" | "gpt4o" | "deepseek" = "gemini";
   let result: Record<string, unknown> | null = null;
   let inputTokens = 0;
   let outputTokens = 0;
   let keyType: "platform" | "byok" = "platform";
+  let anyKeyConfigured = false;
 
   // Check for BYOK key
   const byokProvider = body.byokProvider ?? "gemini";
@@ -243,6 +294,7 @@ export async function POST(request: NextRequest) {
   if (byokKey) keyType = "byok";
 
   if (process.env.GEMINI_ENABLED === "true" && geminiKey) {
+    anyKeyConfigured = true;
     try {
       const res = await callGemini(imageBase64, patientAgeBand, screeningContext, geminiKey);
       result = res.result;
@@ -258,6 +310,7 @@ export async function POST(request: NextRequest) {
     const openaiByokKey = byokProvider === "openai" ? byokKey : null;
     const openaiKey = openaiByokKey ?? (process.env.OPENAI_API_KEY ?? "");
     if (openaiKey) {
+      anyKeyConfigured = true;
       try {
         const res = await callOpenAI(imageBase64, patientAgeBand, screeningContext, openaiKey);
         result = res.result;
@@ -271,11 +324,33 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (!result && process.env.DEEPSEEK_ENABLED === "true") {
+    const deepseekByokKey = byokProvider === "deepseek" ? byokKey : null;
+    const deepseekKey = deepseekByokKey ?? (process.env.DEEPSEEK_API_KEY ?? "");
+    if (deepseekKey) {
+      anyKeyConfigured = true;
+      try {
+        const res = await callDeepSeek(imageBase64, patientAgeBand, screeningContext, deepseekKey);
+        result = res.result;
+        inputTokens = res.inputTokens;
+        outputTokens = res.outputTokens;
+        provider = "deepseek";
+        if (deepseekByokKey) keyType = "byok";
+      } catch {
+        result = null;
+      }
+    }
+  }
+
   if (!result) {
+    if (!anyKeyConfigured) {
+      // All providers ON but no API keys configured — State C per PRD
+      return fail(503, "enhanced_ai_unavailable", "Enhanced AI unavailable — no API keys configured. Using offline mode.", requestId);
+    }
     return fail(503, "ai_unavailable", "All AI providers unavailable", requestId);
   }
 
-  const costMap: Record<string, "gemini" | "gpt4o" | "deepseek"> = { gemini: "gemini", gpt4o: "gpt4o" };
+  const costMap: Record<string, "gemini" | "gpt4o" | "deepseek"> = { gemini: "gemini", gpt4o: "gpt4o", deepseek: "deepseek" };
   const costProvider = costMap[provider] ?? "gemini";
   const estimatedCostUsd = calcCost(costProvider, inputTokens, outputTokens);
 
@@ -288,7 +363,7 @@ export async function POST(request: NextRequest) {
     confidenceScore: result["confidenceScore"],
     confidenceSentence: result["confidenceSentence"],
     recommendedAction: result["recommendedAction"],
-    inferenceMethod: provider === "gemini" ? "gemini" : "gpt4o",
+    inferenceMethod: provider,
     estimatedCostUsd,
     provider,
   }, requestId);

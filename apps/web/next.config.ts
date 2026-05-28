@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === "true" });
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -35,4 +38,4 @@ const nextConfig: NextConfig = {
   }
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

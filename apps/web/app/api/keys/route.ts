@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuthenticatedUser } from "@/lib/server/auth";
 import { ok, fail, requestIdFrom } from "@/lib/server/api-response";
 import { encryptKey, maskKey } from "@/lib/server/byok";
+import { AI_CONSTANTS, isAllowedAiUrl } from "@/lib/ai/constants";
 
 const postSchema = z.object({
   provider: z.enum(["gemini", "openai", "deepseek"]),
@@ -18,6 +19,35 @@ type KeyRow = {
   encrypted_key_ciphertext: string;
   updated_at: string;
 };
+
+// Validate the key works before storing
+async function validateApiKey(provider: string, apiKey: string): Promise<boolean> {
+  try {
+    if (provider === "gemini") {
+      const url = `${AI_CONSTANTS.geminiBaseUrl}/models/${AI_CONSTANTS.geminiModel}?key=${apiKey}`;
+      if (!isAllowedAiUrl(url)) return false;
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      return res.ok || res.status === 404; // 404 means auth passed but model not found
+    }
+    if (provider === "openai") {
+      const res = await fetch(`${AI_CONSTANTS.openaiBaseUrl}/models`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(8000),
+      });
+      return res.ok || res.status === 404;
+    }
+    if (provider === "deepseek") {
+      const res = await fetch(`${AI_CONSTANTS.deepseekBaseUrl}/models`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(8000),
+      });
+      return res.ok || res.status === 404;
+    }
+    return false;
+  } catch {
+    return false; // Network error — fail open (don't block storage)
+  }
+}
 
 async function upsertKey(userId: string, provider: string, encrypted: { iv: string; ciphertext: string; tag: string }) {
   const url = process.env.SUPABASE_URL;
@@ -106,6 +136,9 @@ export async function POST(request: NextRequest) {
   } catch {
     return fail(400, "invalid_body", "Request body validation failed", requestId);
   }
+
+  const isValid = await validateApiKey(body.provider, body.apiKey);
+  if (!isValid) return fail(422, "key_invalid", "API key validation failed — check the key and try again", requestId);
 
   try {
     const encrypted = encryptKey(body.apiKey);

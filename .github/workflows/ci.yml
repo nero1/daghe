@@ -24,6 +24,9 @@ jobs:
       DEEPSEEK_API_KEY: placeholder
       DEEPSEEK_ENABLED: "true"
       DEEPSEEK_MODEL: deepseek-chat
+      TELEGRAM_BOT_TOKEN: placeholder
+      FACILITY_JWT_SECRET: placeholder
+      CRON_SECRET: "dev-cron-secret"
 
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +47,18 @@ jobs:
 
       - name: Security audit
         run: npm audit --audit-level=high || true
+
+      - name: Secret scan — no keys in source
+        run: |
+          # Fail if any API route leaks NEXT_PUBLIC_ env vars (client-exposed)
+          if grep -rn "NEXT_PUBLIC_" apps/web/app/api/ 2>/dev/null | grep -v "//"; then
+            echo "ERROR: NEXT_PUBLIC_ variable found in API route — would expose secret to client" && exit 1
+          fi
+          # Fail if any plaintext key-like strings appear in server lib (not in tests or .env)
+          if grep -rn "sk-[a-zA-Z0-9]\{20,\}" apps/web/lib/server/ 2>/dev/null; then
+            echo "ERROR: Possible plaintext API key found in server lib" && exit 1
+          fi
+          echo "Secret scan: no issues found"
 
       - name: Migration check
         run: |
@@ -90,6 +105,12 @@ jobs:
 
       - name: Security tests — auth logic
         run: node tests/security/auth.test.mjs
+
+      - name: Security tests — prompt injection
+        run: node tests/security/prompt-injection.test.mjs
+
+      - name: Security tests — demo mode isolation
+        run: node tests/security/demo-mode.test.mjs
 
       - name: Offline tests — service worker checks
         run: node tests/offline/sw.test.mjs

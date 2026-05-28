@@ -49,6 +49,7 @@ export type ConditionModule = {
   exposureMin: number;
   exposureMax: number;
   roiConfidenceThreshold: number;
+  referenceTextPath?: string;
 };
 
 // ─── Encounter (replaces LocalCase) ──────────────────────────────────────────

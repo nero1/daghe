@@ -32,7 +32,7 @@ type FallbackAnswers = {
   patch_raised_or_irregular?: "yes" | "no" | "unsure";
 };
 
-const AGE_BANDS = ["<25", "25–34", "35–44", "45–54", "55+"];
+const AGE_BANDS = ["25–29", "30–34", "35–39", "40–44", "45–49", "50+"];
 
 const BAND_COLORS: Record<ConfidenceBand, { bg: string; text: string; label: string }> = {
   HIGH: { bg: "#d1fae5", text: "#065f46", label: "HIGH CONFIDENCE" },
@@ -46,6 +46,12 @@ const CLASS_COLORS: Record<ViaClassification, { bg: string; text: string; icon: 
   NEGATIVE: { bg: "#d1fae5", text: "#065f46", icon: "✓" },
   REFER: { bg: "#fef3c7", text: "#92400e", icon: "→" },
 };
+
+async function computeImageHash(imageData: ImageData): Promise<string> {
+  const buffer = imageData.data.buffer;
+  const hashBuf = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
 
 function applyFallbackRules(answers: FallbackAnswers): ModuleResult {
   const { white_patch, patch_touches_os, patch_raised_or_irregular } = answers;
@@ -95,7 +101,7 @@ export default function ScreeningPage() {
   const [step, setStep] = useState<Step>("module-select");
   const [selectedModule] = useState<ConditionModule>(cervicalViaModule);
   const [patientCtx, setPatientCtx] = useState<PatientContext>({
-    ageBand: "25–34",
+    ageBand: "30–34",
     screeningContext: "routine",
   });
   const [qualityAttempts, setQualityAttempts] = useState(0);
@@ -108,6 +114,9 @@ export default function ScreeningPage() {
   const [fallbackAnswers, setFallbackAnswers] = useState<FallbackAnswers>({});
   const [showFallback, setShowFallback] = useState(false);
   const [estimatedCostUsd, setEstimatedCostUsd] = useState<string | null>(null);
+  const [imageHash, setImageHash] = useState<string | null>(null);
+  const [showGuidanceModal, setShowGuidanceModal] = useState(false);
+  const [guidanceHtml, setGuidanceHtml] = useState("");
 
   // Image MUST be in a ref, never React state — PRD requirement
   const imageDataRef = useRef<ImageData | null>(null);
@@ -121,6 +130,12 @@ export default function ScreeningPage() {
       stopCamera();
       imageDataRef.current = null;
     };
+  }, []);
+
+  // Skip capture guide if user previously indicated they are certified
+  useEffect(() => {
+    const skipped = sessionStorage.getItem("daghe_skip_capture_guide") === "true";
+    if (skipped) setStep("capture");
   }, []);
 
   function stopCamera() {
@@ -220,8 +235,16 @@ export default function ScreeningPage() {
       const final = { ...tfliteResult, qualityOverrideUsed: qualityOverride };
       setResult(final);
       setStep("result");
-      // Clear image from memory after inference
-      imageDataRef.current = null;
+      // Compute image hash then clear image from memory after inference
+      if (imageDataRef.current) {
+        try {
+          const hash = await computeImageHash(imageDataRef.current);
+          setImageHash(hash);
+        } catch {
+          setImageHash(null);
+        }
+        imageDataRef.current = null;
+      }
       return;
     }
 
@@ -278,7 +301,16 @@ export default function ScreeningPage() {
             setResult(final);
             if (d.estimatedCostUsd) setEstimatedCostUsd(d.estimatedCostUsd);
             setStep("result");
-            imageDataRef.current = null;
+            // Compute image hash then clear image from memory after inference
+            if (imageDataRef.current) {
+              try {
+                const hash = await computeImageHash(imageDataRef.current);
+                setImageHash(hash);
+              } catch {
+                setImageHash(null);
+              }
+              imageDataRef.current = null;
+            }
             return;
           }
         }
@@ -287,8 +319,16 @@ export default function ScreeningPage() {
       }
     }
 
-    // Step 3: Offline rule-based fallback
-    imageDataRef.current = null;
+    // Step 3: Offline rule-based fallback — compute hash before clearing
+    if (imageDataRef.current) {
+      try {
+        const hash = await computeImageHash(imageDataRef.current);
+        setImageHash(hash);
+      } catch {
+        setImageHash(null);
+      }
+      imageDataRef.current = null;
+    }
     setShowFallback(true);
   }
 
@@ -314,7 +354,7 @@ export default function ScreeningPage() {
       patientAgeBand: patientCtx.ageBand,
       screeningContext: patientCtx.screeningContext,
       result,
-      imageHash: null,
+      imageHash: imageHash,
       actionTaken,
       qualityOverride: result.qualityOverrideUsed,
       inferenceMethod: result.inferenceMethod,
@@ -341,6 +381,47 @@ export default function ScreeningPage() {
     setShowFallback(false);
     setEstimatedCostUsd(null);
     setNotes("");
+    setImageHash(null);
+  }
+
+  async function handleViewClinicalGuidance() {
+    const path = selectedModule.referenceTextPath ?? "/modules/cervical-via/reference/en.md";
+    try {
+      const res = await fetch(path);
+      if (res.ok) {
+        const text = await res.text();
+        // Convert basic markdown to HTML — content comes from bundled static files only (no user input), safe as-is
+        const html = text
+          .replace(/^# (.+)$/gm, "<h2 style='font-size:1.2rem;font-weight:700;margin:1.5rem 0 0.5rem'>$1</h2>")
+          .replace(/^## (.+)$/gm, "<h3 style='font-size:1rem;font-weight:700;margin:1.25rem 0 0.4rem'>$1</h3>")
+          .replace(/^### (.+)$/gm, "<h4 style='font-size:0.95rem;font-weight:600;margin:1rem 0 0.3rem'>$1</h4>")
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          .replace(/^---$/gm, "<hr style='margin:1rem 0;border:none;border-top:1px solid #e5e7eb'>")
+          .replace(/\n\n/g, "<br><br>")
+          .replace(/^- (.+)$/gm, "• $1<br>");
+        setGuidanceHtml(html);
+      } else {
+        setGuidanceHtml("<p>Clinical reference not available offline. Please consult your supervisor.</p>");
+      }
+    } catch {
+      setGuidanceHtml("<p>Clinical reference not available. Please consult your supervisor.</p>");
+    }
+    setShowGuidanceModal(true);
+  }
+
+  function handleUseReference() {
+    const refResult: ModuleResult = applyConfidenceOverride({
+      classification: "REFER",
+      confidenceBand: "REFERENCE_ONLY",
+      inferenceMethod: "reference",
+      confidenceSentence: "Reference material only. No personalised guidance available. Escalate to your supervisor.",
+      recommendedAction: "No analysis available. Reference material only. Escalate now.",
+      referralRequired: true,
+      qualityOverrideUsed: false,
+    });
+    setResult(refResult);
+    setShowFallback(false);
+    setStep("result");
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -487,7 +568,11 @@ export default function ScreeningPage() {
             {t.captureImage ?? "Capture Image"}
           </button>
           <button
-            onClick={() => setStep("capture")}
+            onClick={() => {
+              sessionStorage.setItem("daghe_skip_capture_guide", "true");
+              setStep("capture");
+              void startCamera();
+            }}
             aria-label={t.skipCertified ?? "Skip — I'm certified"}
             style={{
               flex: 1,
@@ -681,94 +766,134 @@ export default function ScreeningPage() {
         >
           Get Result
         </button>
+        <button
+          onClick={handleUseReference}
+          style={{
+            width: "100%",
+            padding: "10px",
+            background: "#f3f4f6",
+            color: "#6b7280",
+            border: "1px solid #d1d5db",
+            borderRadius: 8,
+            fontSize: "0.85rem",
+            cursor: "pointer",
+            minHeight: 44,
+            marginTop: 8,
+          }}
+        >
+          Use reference guidance only (REFER — see supervisor)
+        </button>
       </main>
     );
   }
 
   if (step === "result" && result) {
-    const classStyle = CLASS_COLORS[result.classification];
     const bandStyle = BAND_COLORS[result.confidenceBand];
     const inferenceLabels: Record<string, string> = {
       tflite: t.inferenceOnDevice ?? "On-device AI",
       gemini: t.inferenceOnline ?? "Online AI",
       gpt4o: t.inferenceOnline ?? "Online AI",
+      deepseek: t.inferenceOnline ?? "Online AI",
       "rule-based": t.inferenceRuleBased ?? "Offline guidance",
       reference: t.inferenceReference ?? "Reference only",
     };
 
+    // PRD spec: full-screen solid backgrounds per classification
+    const BG: Record<string, string> = { POSITIVE: "#DC2626", NEGATIVE: "#16A34A", REFER: "#D97706" };
+    const FG: Record<string, string> = { POSITIVE: "#fff", NEGATIVE: "#fff", REFER: "#1C1917" };
+    const ICON: Record<string, string> = { POSITIVE: "⚠", NEGATIVE: "✓", REFER: "→" };
+    const TITLE: Record<string, string> = { POSITIVE: "POSITIVE", NEGATIVE: "NEGATIVE", REFER: "REFER — SEE SUPERVISOR" };
+    const isCritical = result.classification === "POSITIVE" || result.classification === "REFER";
+
+    const bg = BG[result.classification] ?? "#D97706";
+    const fg = FG[result.classification] ?? "#1C1917";
+    const icon = ICON[result.classification] ?? "→";
+    const title = TITLE[result.classification] ?? result.classification;
+
     return (
-      <main style={{ padding: "1.5rem", maxWidth: 480, margin: "0 auto" }}>
-        {/* Classification badge */}
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        {/* Full-screen classification header — PRD spec: solid background, 28px+ text, 80px icon */}
         <div
           role="status"
           aria-label={`Classification: ${result.classification}`}
-          style={{
-            background: classStyle.bg,
-            color: classStyle.text,
-            borderRadius: 12,
-            padding: "16px 20px",
-            marginBottom: 12,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            fontSize: "1.5rem",
-            fontWeight: 800,
-          }}
+          style={{ background: bg, color: fg, padding: "2rem 1.5rem 1.5rem", textAlign: "center" }}
         >
-          <span aria-hidden="true" style={{ fontSize: "1.75rem" }}>{classStyle.icon}</span>
-          {result.classification}
-        </div>
-
-        {/* Confidence band — always visible, never hidden */}
-        <div
-          role="status"
-          aria-label={`Confidence: ${result.confidenceBand}`}
-          style={{
-            background: bandStyle.bg,
-            color: bandStyle.text,
-            borderRadius: 8,
-            padding: "10px 16px",
-            marginBottom: 12,
-            fontWeight: 700,
-            fontSize: "0.875rem",
-            letterSpacing: "0.05em",
-          }}
-        >
-          {bandStyle.label}
-          {result.confidenceScore !== undefined && (
-            <span style={{ fontWeight: 400, marginInlineStart: 8 }}>
-              ({Math.round(result.confidenceScore * 100)}%)
+          <div aria-hidden="true" style={{ fontSize: 80, lineHeight: 1, marginBottom: 12 }}>{icon}</div>
+          <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 12, letterSpacing: "0.02em" }}>{title}</div>
+          {/* Recommended action — 18px per PRD spec */}
+          <p style={{ fontSize: 18, fontWeight: 500, maxWidth: 400, margin: "0 auto 16px" }}>
+            {result.recommendedAction}
+          </p>
+          {/* Confidence band — ALWAYS visible below recommended action, never hidden */}
+          <div
+            aria-label={`Confidence: ${result.confidenceBand}`}
+            style={{
+              display: "inline-block",
+              background: bandStyle.bg,
+              color: bandStyle.text,
+              padding: "6px 16px",
+              borderRadius: 20,
+              fontWeight: 700,
+              fontSize: "0.85rem",
+              letterSpacing: "0.05em",
+              marginBottom: 8,
+            }}
+          >
+            {bandStyle.label}
+            {result.confidenceScore !== undefined && (
+              <span style={{ fontWeight: 400, marginInlineStart: 8 }}>
+                ({Math.round(result.confidenceScore * 100)}%)
+              </span>
+            )}
+          </div>
+          {/* Inference + cost chips */}
+          <div style={{ marginTop: 8, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+            <span style={{ background: "rgba(0,0,0,0.15)", padding: "3px 10px", borderRadius: 12, fontSize: 12 }}>
+              {inferenceLabels[result.inferenceMethod] ?? result.inferenceMethod}
             </span>
+            {result.qualityOverrideUsed && (
+              <span style={{ background: "rgba(0,0,0,0.15)", padding: "3px 10px", borderRadius: 12, fontSize: 12 }}>
+                Quality override
+              </span>
+            )}
+            {estimatedCostUsd && (
+              <span style={{ background: "rgba(0,0,0,0.15)", padding: "3px 10px", borderRadius: 12, fontSize: 12 }}>
+                {t.onlineAiCost ?? "est. cost"}: ${estimatedCostUsd}
+              </span>
+            )}
+          </div>
+          {result.confidenceSentence && (
+            <p style={{ marginTop: 12, fontSize: "0.85rem", opacity: 0.9 }}>{result.confidenceSentence}</p>
           )}
         </div>
 
-        {/* Chips row: inference method + cost */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          <span style={{ background: "#f3f4f6", color: "#374151", padding: "4px 10px", borderRadius: 20, fontSize: 12 }}>
-            {inferenceLabels[result.inferenceMethod] ?? result.inferenceMethod}
-          </span>
-          {result.qualityOverrideUsed && (
-            <span style={{ background: "#fef3c7", color: "#92400e", padding: "4px 10px", borderRadius: 20, fontSize: 12 }}>
-              Quality override
-            </span>
-          )}
-          {estimatedCostUsd && (
-            <span style={{ background: "#f0fdf4", color: "#166534", padding: "4px 10px", borderRadius: 20, fontSize: 12 }}>
-              {t.onlineAiCost ?? "estimated cost"}: ${estimatedCostUsd}
-            </span>
-          )}
-        </div>
+        {/* Clinical guidance button (POSITIVE/REFER only) per PRD */}
+        {isCritical && (
+          <div style={{ padding: "1rem 1.5rem 0", background: "#fff" }}>
+            <button
+              onClick={() => { void handleViewClinicalGuidance(); }}
+              aria-label="View clinical guidance"
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "12px",
+                background: "#1e3a5f",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                fontSize: "0.95rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                minHeight: 44,
+              }}
+            >
+              View clinical guidance
+            </button>
+          </div>
+        )}
 
-        {/* Confidence sentence */}
-        <p style={{ fontSize: "0.9rem", color: "#374151", marginBottom: 12 }}>{result.confidenceSentence}</p>
-
-        {/* Recommended action */}
-        <div style={{ background: "#f8fafc", borderLeft: "4px solid #2563eb", padding: "12px 16px", borderRadius: "0 8px 8px 0", marginBottom: 20 }}>
-          <p style={{ fontWeight: 600, marginBottom: 4 }}>Recommended action</p>
-          <p style={{ fontSize: "0.9rem" }}>{result.recommendedAction}</p>
-        </div>
-
-        {/* Action taken selector */}
+        {/* Action + save section on white background */}
+        <div style={{ padding: "1rem 1.5rem", background: "#fff", flex: 1 }}>
         {!saved && (
           <>
             <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 8 }}>Action taken</h2>
@@ -874,7 +999,28 @@ export default function ScreeningPage() {
             {t.encounters ?? "Case Log"}
           </button>
         </div>
-      </main>
+
+        {/* Clinical guidance modal — bundled reference text, always available offline */}
+        {showGuidanceModal && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Clinical guidance"
+            style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 9999, overflowY: "auto", padding: "1.5rem" }}
+          >
+            <button
+              onClick={() => setShowGuidanceModal(false)}
+              aria-label="Close guidance"
+              style={{ position: "sticky", top: 0, display: "block", marginBottom: 16, padding: "10px 20px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", fontWeight: 600, minHeight: 44 }}
+            >
+              ← Close
+            </button>
+            {/* Content from our own bundled static file — safe for dangerouslySetInnerHTML */}
+            <div style={{ fontSize: "0.9rem", lineHeight: 1.7, color: "#1f2937" }} dangerouslySetInnerHTML={{ __html: guidanceHtml }} />
+          </div>
+        )}
+        </div>
+      </div>
     );
   }
 

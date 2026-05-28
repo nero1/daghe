@@ -1,82 +1,119 @@
-# Asibi Setup Guide (No-CLI, Beginner Friendly)
+# Daghe Setup Guide
 
-This guide is written for new developers and project owners who may not use the command line.
+This guide covers setting up Daghe for development and production deployment.
 
-## 1) What Asibi Is
-Asibi is an offline-first health triage web app. Community Health Workers (CHWs) can:
-- run triage checks,
-- save cases offline on device,
-- sync cases when internet returns,
-- and supervisors can view dashboard summaries and exports.
+## 1) What Daghe Is
 
-## 2) Accounts and Services You Need
-Create these accounts first (all can be done in browser):
-1. **GitHub** (code hosting + CI)
-2. **Vercel** (web hosting)
-3. **Supabase** (database + auth)
+Daghe is an AI-assisted VIA (Visual Inspection with Acetic Acid) cervical cancer screening PWA. Community Health Workers (CHWs) can:
+- Capture or upload cervical images for AI-assisted analysis
+- Get on-device AI results (TFLite WASM) or cloud AI results (Gemini, GPT-4o)
+- Work fully offline with WHO rule-based fallback
+- Save encounters locally, sync when connectivity returns
+- Supervisors manage facilities, BYOK API keys, and view cost dashboards
 
-## 3) Create Supabase Project (Browser Only)
-1. Sign in to Supabase and create a new project.
-2. Save these values from Project Settings → API:
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY` (sensitive; never expose to client)
-3. In SQL Editor, run migration files in this order:
-   - `supabase/migrations/0001_init.sql`
-   - `supabase/migrations/0002_cases_rls_policies.sql`
-   - `supabase/migrations/0003_audit_logs.sql`
+## 2) Accounts and Services
 
-## 4) Configure Authentication Roles
-In Supabase Auth dashboard:
-1. Create users for CHW and supervisor/admin.
-2. Add `user_metadata.role` values:
-   - `chw`
-   - `supervisor`
-   - `admin`
+1. **GitHub** — code hosting + CI (GitHub Actions)
+2. **Vercel** — web hosting
+3. **Supabase** — database (PostgreSQL) + auth
+4. **Upstash** — Redis (session cache, rate limiting)
+5. **AI providers** (at least one): Google Gemini, OpenAI, DeepSeek
 
-## 5) Deploy to Vercel (No-CLI)
-1. Import GitHub repo into Vercel.
-2. Framework: Next.js (auto-detected).
-3. Add environment variables in Vercel Project Settings:
+## 3) Generate Required Secrets
+
+### BYOK_ENCRYPTION_KEY (required)
+This 32-byte AES-256 master key encrypts all supervisor API keys at rest.
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+Store the output (64 hex chars) in your environment. Never commit it.
+
+### FACILITY_JWT_SECRET (optional — for shared-device deployments)
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+## 4) Supabase Setup
+
+1. Create a new Supabase project.
+2. From Project Settings → API, copy:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
-4. Trigger deploy.
+3. In SQL Editor, run all 20 migration files in order:
+   ```
+   supabase/migrations/0001_init.sql through 0020_encounters_rls.sql
+   ```
+4. In Supabase Auth → Users, create accounts and set `user_metadata.role` to `chw`, `supervisor`, or `admin`.
 
-## 6) GitHub Actions CI Setup
-In GitHub repository:
-1. Open **Actions** tab.
-2. Ensure workflow `.github/workflows/ci.yml` runs on push/PR.
-3. Confirm pipeline steps:
-   - install dependencies
-   - typecheck
-   - build
-   - tests
+## 5) Upstash Redis Setup
 
-## 7) Secrets and Security Rules
-- Never share `SUPABASE_SERVICE_ROLE_KEY` publicly.
-- Keep service role key only in server-side env settings.
-- Rotate keys immediately if exposed.
-- Use role-based users for real operations (no shared credentials).
+1. Create an Upstash Redis database.
+2. Copy:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
 
-## 8) Browser-Only Validation Checklist
-After deployment, verify in browser:
-1. Home page loads.
-2. Login works for CHW.
-3. Triage can evaluate and save case offline.
-4. Cases page can sync unsynced items.
-5. Dashboard loads for supervisor/admin.
-6. Export CSV downloads.
-7. Audit route is writing/reading logs (admin/supervisor).
+## 6) TFLite Model Files
 
-## 9) Common Problems (No-CLI Fixes)
-- **401 errors**: user not logged in or wrong role metadata.
-- **403 CSRF errors**: stale browser session/cookies; refresh page and retry.
-- **Dashboard empty**: no synced data yet, or wrong Supabase env vars.
-- **Sync fails**: check service role key and cases table migrations.
+Place model files in `apps/web/public/models/`:
+- `efficientdet-lite3-cervical-v1.2.tflite`
+- `mobilenetv2-cervical-via-v1.2.tflite`
 
-## 10) Production Readiness (Browser-Managed)
-- Turn on Vercel branch protection / production approvals.
-- Enable Supabase backups.
-- Create weekly key rotation policy.
-- Create incident contact and recovery runbook.
+These are served as static files and cached by the Service Worker in the `daghe-models-v1` Cache API. The `ModelLoader` component (rendered after auth) downloads them in the background.
+
+## 7) Local Development
+
+```bash
+npm install
+```
+
+Copy `.env.local.example` to `apps/web/.env.local` and fill in values:
+```
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+UPSTASH_REDIS_REST_URL=https://...
+UPSTASH_REDIS_REST_TOKEN=...
+BYOK_ENCRYPTION_KEY=<64 hex chars>
+GEMINI_API_KEY=...
+GEMINI_ENABLED=true
+OPENAI_API_KEY=...
+OPENAI_ENABLED=true
+```
+
+```bash
+npm run dev --workspace=apps/web
+```
+
+## 8) Deploy to Vercel
+
+1. Import the GitHub repo into Vercel.
+2. Framework: Next.js (auto-detected).
+3. Add all environment variables from the table in README.md.
+4. Deploy.
+
+## 9) Dexie.js / IndexedDB Migration Notes
+
+- The IndexedDB database is named `"daghe"` (was `"asibi"` in the previous codebase).
+- If users have data in the old `"asibi"` database, it will not be migrated automatically — they should sync pending cases before upgrading.
+- Current Dexie schema version: `1` (stores: `encounters`, `devicePrefs`, `facilityToken`).
+
+## 10) Environment Variables Reference
+
+See README.md for the full table. All AI provider keys are optional — the app gracefully degrades to offline rule-based mode if no AI provider is available.
+
+## 11) CI/CD
+
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
+- Lint, typecheck, security audit
+- Migration file count + syntax check
+- Build
+- 14 unit/security/offline test suites
+- Deploy to Vercel on `main` push (requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` secrets)
+
+## 12) Common Issues
+
+- **BYOK_ENCRYPTION_KEY wrong length**: Must be exactly 64 hex characters (32 bytes). Generate with the command above.
+- **Models not loading**: Place `.tflite` files in `public/models/`. Check browser DevTools → Application → Cache Storage for `daghe-models-v1`.
+- **Sync fails with 400**: Check that encounter records have `isDemoEncounter: false` and valid UUID `idempotencyKey`.
+- **Typecheck fails on new routes**: Run `npm run build --workspace=apps/web` first to regenerate `.next/types/routes.d.ts`.

@@ -1,9 +1,10 @@
 // Service Worker version — bump this string whenever the app shell changes
 // so returning users get fresh assets and the update prompt appears.
-const VERSION = "daghe-shell-mppu3bvt";
+const VERSION = "daghe-shell-mpq2ah3c";
 
 // App shell: routes and assets that must be available offline.
-const SHELL_URLS = ["/", "/app", "/demo", "/screening", "/encounters", "/settings", "/register", "/admin", "/onboarding", "/help"];
+// Includes clinical reference text — must always be available per PRD (Step 5 fallback).
+const SHELL_URLS = ["/", "/app", "/demo", "/screening", "/encounters", "/settings", "/register", "/admin", "/onboarding", "/help", "/modules/cervical-via/reference/en.md"];
 
 // Cache name used to store the last known model version.
 const MODEL_VERSION_CACHE = "daghe-model-version-v1";
@@ -26,6 +27,33 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Model files to download and cache on OTA update.
+const MODEL_FILES = [
+  "/models/efficientdet-lite3-cervical-v1.2.tflite",
+  "/models/mobilenetv2-cervical-via-v1.2.tflite",
+];
+const MODEL_CACHE_NAME = "daghe-models-v1";
+
+async function sha256Hex(buffer) {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function downloadModelFiles(version) {
+  const modelCache = await caches.open(MODEL_CACHE_NAME);
+  for (const url of MODEL_FILES) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Failed to fetch model ${url}: ${res.status}`);
+    const buf = await res.arrayBuffer();
+    // Compute SHA-256 for integrity verification (logged; server-side pinning can extend this).
+    const hash = await sha256Hex(buf);
+    console.log(`[SW] Model downloaded: ${url} (sha256=${hash}, version=${version})`);
+    await modelCache.put(url, new Response(buf, { headers: { "Content-Type": "application/octet-stream", "X-Model-Version": String(version), "X-SHA256": hash } }));
+  }
+}
+
 async function checkModelVersion() {
   try {
     const response = await fetch("/api/modules/version", { cache: "no-store" });
@@ -38,13 +66,21 @@ async function checkModelVersion() {
     const stored = await versionCache.match("model-version");
     const oldVersion = stored ? await stored.text() : null;
 
-    await versionCache.put("model-version", new Response(String(newVersion)));
+    if (oldVersion !== String(newVersion)) {
+      // New or changed version — download model files before updating stored version.
+      await downloadModelFiles(newVersion);
+      await versionCache.put("model-version", new Response(String(newVersion)));
 
-    if (oldVersion && oldVersion !== String(newVersion)) {
-      const clients = await self.clients.matchAll({ type: "window" });
-      clients.forEach((client) => {
-        client.postMessage({ type: "MODEL_VERSION_UPDATED", version: newVersion });
-      });
+      if (oldVersion) {
+        // Only notify clients when this is an update (not first-time install).
+        const clients = await self.clients.matchAll({ type: "window" });
+        clients.forEach((client) => {
+          client.postMessage({ type: "MODEL_VERSION_UPDATED", version: newVersion });
+        });
+      } else {
+        // First install: store version without notifying (models pre-warmed silently).
+        await versionCache.put("model-version", new Response(String(newVersion)));
+      }
     }
   } catch {
     // Network unavailable or endpoint doesn't exist — skip silently.
