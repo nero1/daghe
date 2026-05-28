@@ -61,6 +61,18 @@ jobs:
       - name: Unit tests — encounters and AI safety rules
         run: node tests/encounters.test.mjs
 
+      - name: Unit tests — quality check algorithms
+        run: node tests/quality-check.test.mjs
+
+      - name: Unit tests — AI inference chain safety
+        run: node tests/ai-chain.test.mjs
+
+      - name: Unit tests — BYOK encryption round-trip
+        run: node tests/byok.test.mjs
+
+      - name: Unit tests — cost calculation precision
+        run: node tests/cost-calc.test.mjs
+
       - name: Unit tests — sync backoff
         run: node tests/sync-backoff.test.mjs
 

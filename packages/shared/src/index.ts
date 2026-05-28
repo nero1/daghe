@@ -61,8 +61,9 @@ export type LocalEncounter = {
   patientAgeBand: string;
   screeningContext: ScreeningContext;
   result: ModuleResult;
-  imageHash: string;
+  imageHash: string | null;
   actionTaken?: ActionTaken;
+  notes?: string;
   qualityOverride: boolean;
   inferenceMethod: InferenceMethod;
   appVersion: string;
@@ -107,8 +108,9 @@ export const localEncounterSchema = z.object({
   patientAgeBand: z.string().max(20),
   screeningContext: screeningContextSchema,
   result: moduleResultSchema,
-  imageHash: z.string().regex(/^[a-f0-9]{64}$/, "must be a SHA-256 hex string"),
+  imageHash: z.string().regex(/^[a-f0-9]{64}$/, "must be a SHA-256 hex string").nullable(),
   actionTaken: actionTakenSchema.optional(),
+  notes: z.string().max(500).optional(),
   qualityOverride: z.boolean(),
   inferenceMethod: inferenceMethodSchema,
   appVersion: z.string().max(50),
