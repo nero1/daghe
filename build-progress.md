@@ -33,3 +33,9 @@ Completed the full rename of the Asibi codebase to Daghe. Replaced all package n
 Progress: 15%
 
 ---
+
+[Phase 2][Condition Module System + Data Layer]
+Rewrote `packages/shared/src/index.ts` with Daghe's core type contracts: `ViaClassification`, `ConfidenceBand`, `InferenceMethod`, `ModuleResult`, `LocalEncounter`, and the critical `applyConfidenceOverride()` safety function (LOW/REFERENCE_ONLY always overrides to REFER). Created the `@daghe/cervical-via` module package with the module descriptor, WHO VIA offline fallback decision tree (`fallback-logic.json`), and full string translations in English, Hausa, Yoruba, Igbo, and French. Replaced the hand-rolled IndexedDB layer (`lib/cases.ts`) with a Dexie.js-based `lib/encounters.ts` (DB name `"daghe"`) featuring `saveEncounter`, `getUnsyncedEncounters` (demo encounter excluded), `markEncounterSynced`, and `markEncounterFailed`. Updated `lib/sync.ts` to use `LocalEncounter` and the renamed `applyEncounterSyncResults`. Updated `sync-agent.tsx` to call `/api/encounters/sync`. Created the new `/api/encounters/sync` route with `LocalEncounter` Zod validation and the demo encounter server-side rejection guard. Created `/api/modules/version` endpoint for SW model version checking. Added 42 new Daghe-specific i18n keys to the English language block. Replaced old demo page (which imported deleted triage logic) with a Daghe-specific VIA demo. Old `/cases` page now redirects to `/encounters`. All tests pass and build succeeds.
+Progress: 35%
+
+---

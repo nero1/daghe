@@ -1,6 +1,6 @@
 // Service Worker version — bump this string whenever the app shell changes
 // so returning users get fresh assets and the update prompt appears.
-const VERSION = "daghe-shell-mppt87g7";
+const VERSION = "daghe-shell-mpptnqpj";
 
 // App shell: routes and assets that must be available offline.
 const SHELL_URLS = ["/", "/app", "/demo", "/screening", "/encounters", "/settings", "/register", "/admin", "/onboarding", "/help"];

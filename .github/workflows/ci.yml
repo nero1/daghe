@@ -58,6 +58,9 @@ jobs:
       - name: Build
         run: npm run build --workspace=apps/web
 
+      - name: Unit tests — encounters and AI safety rules
+        run: node tests/encounters.test.mjs
+
       - name: Unit tests — sync backoff
         run: node tests/sync-backoff.test.mjs
 

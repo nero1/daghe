@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0",
+  "description": "WHO VIA offline rule-based fallback decision tree",
+  "questions": [
+    {
+      "id": "white_patch",
+      "textKey": "fallbackQ1",
+      "options": ["yes", "no", "unsure"]
+    },
+    {
+      "id": "patch_touches_os",
+      "textKey": "fallbackQ2",
+      "options": ["yes", "no", "not_applicable"],
+      "dependsOn": { "white_patch": "yes" }
+    },
+    {
+      "id": "patch_raised_or_irregular",
+      "textKey": "fallbackQ3",
+      "options": ["yes", "no", "unsure"],
+      "dependsOn": { "white_patch": "yes" }
+    }
+  ],
+  "rules": [
+    {
+      "conditions": { "white_patch": "no" },
+      "result": { "classification": "NEGATIVE", "confidenceBand": "MODERATE" },
+      "recommendedActionKey": "fallbackActionNegative"
+    },
+    {
+      "conditions": { "white_patch": "unsure" },
+      "result": { "classification": "REFER", "confidenceBand": "MODERATE" },
+      "recommendedActionKey": "fallbackActionRefer"
+    },
+    {
+      "conditions": { "white_patch": "yes", "patch_touches_os": "yes" },
+      "result": { "classification": "POSITIVE", "confidenceBand": "MODERATE" },
+      "recommendedActionKey": "fallbackActionPositive"
+    },
+    {
+      "conditions": { "white_patch": "yes", "patch_raised_or_irregular": "yes" },
+      "result": { "classification": "POSITIVE", "confidenceBand": "MODERATE" },
+      "recommendedActionKey": "fallbackActionPositive"
+    },
+    {
+      "conditions": { "white_patch": "yes" },
+      "result": { "classification": "REFER", "confidenceBand": "MODERATE" },
+      "recommendedActionKey": "fallbackActionRefer"
+    }
+  ]
+}
