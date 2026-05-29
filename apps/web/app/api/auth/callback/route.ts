@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const error = url.searchParams.get("error");
   const errorDescription = url.searchParams.get("error_description");
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? (
+  const appUrl = process.env.APP_URL ?? (
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"
   );
 
