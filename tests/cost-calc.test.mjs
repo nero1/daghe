@@ -1,7 +1,7 @@
 // Unit tests for Decimal.js cost calculation precision
 // Verifies that Decimal.js avoids floating-point arithmetic artifacts
 
-import Decimal from "/home/user/daghe/node_modules/decimal.js/decimal.mjs";
+import Decimal from "decimal.js";
 
 let passed = 0;
 let failed = 0;
