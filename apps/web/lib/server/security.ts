@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 export async function issueCsrfToken(response: { cookies: { set: Function } }) {
   // CSRF token is readable by client JS so it can be echoed in request headers.
   const token = crypto.randomUUID();
-  response.cookies.set("asibi_csrf", token, { httpOnly: false, secure: true, sameSite: "lax", path: "/" });
+  response.cookies.set("daghe_csrf", token, { httpOnly: false, secure: true, sameSite: "lax", path: "/" });
   return token;
 }
 
@@ -27,7 +27,7 @@ function isTrustedOrigin(origin: string | null, host: string | null): boolean {
  */
 export async function verifyCsrf(request: Request): Promise<boolean> {
   const headerToken = request.headers.get("x-csrf-token");
-  const cookieToken = (await cookies()).get("asibi_csrf")?.value;
+  const cookieToken = (await cookies()).get("daghe_csrf")?.value;
   const origin = request.headers.get("origin");
   const host = request.headers.get("host");
   const originAllowed = isTrustedOrigin(origin, host);

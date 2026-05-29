@@ -4,8 +4,8 @@ export type CHWProfile = {
   consentedAt: string;
 };
 
-const CONSENT_KEY = "asibi_consent_v1";
-const PROFILE_KEY = "asibi_profile_v1";
+const CONSENT_KEY = "daghe_consent_v1";
+const PROFILE_KEY = "daghe_profile_v1";
 
 export function hasConsented(): boolean {
   if (typeof window === "undefined") return false;

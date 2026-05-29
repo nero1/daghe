@@ -98,10 +98,10 @@ const swContent = await (async () => {
 })();
 
 if (swContent) {
-  assert.ok(swContent.includes('const VERSION = "asibi-shell-'), "SW must have a versioned cache name");
+  assert.ok(swContent.includes('const VERSION = "daghe-shell-'), "SW must have a versioned cache name");
   assert.ok(swContent.includes("skipWaiting"), "SW must call skipWaiting for immediate activation");
   assert.ok(swContent.includes("/api/"), "SW must have special handling for API routes");
-  assert.ok(swContent.includes("TRIAGE_RULES_UPDATED"), "SW must post TRIAGE_RULES_UPDATED message");
+  assert.ok(swContent.includes("MODEL_VERSION_UPDATED"), "SW must post MODEL_VERSION_UPDATED message");
   console.log("PASS [offline] SW source code checks");
 }
 

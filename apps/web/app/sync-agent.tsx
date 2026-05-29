@@ -1,11 +1,10 @@
 "use client";
 
-
 import { useEffect } from "react";
-import { readCases } from "@/lib/cases";
+import { getUnsyncedEncounters } from "@/lib/encounters";
 import { ensureCsrfToken } from "@/lib/csrf";
 
-const LOCK_KEY = "asibi_sync_lock";
+const LOCK_KEY = "daghe_sync_lock";
 const BATCH_SIZE = 50;
 
 function acquireLock(): boolean {
@@ -26,28 +25,32 @@ export default function SyncAgent() {
     const run = async () => {
       if (!navigator.onLine || !acquireLock()) return;
       try {
-        const cases = await readCases();
-        const due = cases.filter((c) => c.syncStatus !== "synced" && (!c.nextRetryAt || new Date(c.nextRetryAt).getTime() <= Date.now()));
+        const encounters = await getUnsyncedEncounters();
+        const due = encounters.filter(
+          (e) => !e.nextRetryAt || new Date(e.nextRetryAt).getTime() <= Date.now()
+        );
         if (!due.length) return;
-        // Batch to avoid a single oversized request when many cases are queued.
         for (let i = 0; i < due.length; i += BATCH_SIZE) {
           const batch = due.slice(i, i + BATCH_SIZE);
-          // BUG-004 fix: include CSRF token for background sync endpoint protection.
           const csrf = await ensureCsrfToken();
-          let response = await fetch("/api/cases/sync", {
+          let response = await fetch("/api/encounters/sync", {
             method: "POST",
             headers: { "content-type": "application/json", "x-csrf-token": csrf },
             credentials: "include",
-            body: JSON.stringify({ cases: batch })
+            body: JSON.stringify({ encounters: batch }),
           });
           if (response.status === 401) {
-            const refresh = await fetch("/api/auth/refresh", { method: "POST", credentials: "include", headers: { "x-csrf-token": csrf } });
+            const refresh = await fetch("/api/auth/refresh", {
+              method: "POST",
+              credentials: "include",
+              headers: { "x-csrf-token": csrf },
+            });
             if (refresh.ok) {
-              response = await fetch("/api/cases/sync", {
+              response = await fetch("/api/encounters/sync", {
                 method: "POST",
                 headers: { "content-type": "application/json", "x-csrf-token": csrf },
                 credentials: "include",
-                body: JSON.stringify({ cases: batch })
+                body: JSON.stringify({ encounters: batch }),
               });
             }
           }
@@ -60,7 +63,7 @@ export default function SyncAgent() {
     run();
     const id = setInterval(run, 30000);
     // Jitter on reconnect spreads burst sync traffic when many devices come back online together.
-    const onOnline = () => setTimeout(run, Math.floor(Math.random() * 10000));
+    const onOnline = () => setTimeout(run, Math.floor(Math.random() * 30000));
     window.addEventListener("online", onOnline);
     return () => {
       clearInterval(id);
@@ -70,4 +73,3 @@ export default function SyncAgent() {
 
   return null;
 }
-

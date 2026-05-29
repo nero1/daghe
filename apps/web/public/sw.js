@@ -1,51 +1,86 @@
 // Service Worker version — bump this string whenever the app shell changes
 // so returning users get fresh assets and the update prompt appears.
-const VERSION = "asibi-shell-mpd9u9qu";
+const VERSION = "daghe-shell-mpqjcina";
 
 // App shell: routes and assets that must be available offline.
-const SHELL_URLS = ["/", "/app", "/demo", "/triage", "/cases", "/register", "/admin"];
+// Includes clinical reference text — must always be available per PRD (Step 5 fallback).
+const SHELL_URLS = ["/", "/app", "/demo", "/screening", "/encounters", "/settings", "/register", "/admin", "/onboarding", "/help", "/modules/cervical-via/reference/en.md"];
 
-// Cache name used to store the last known triage rules version.
-const RULES_VERSION_CACHE = "asibi-rules-version-v1";
+// Cache name used to store the last known model version.
+const MODEL_VERSION_CACHE = "daghe-model-version-v1";
 
 // On install: cache all shell URLs.
 // Do NOT call skipWaiting here — the update prompt in sw-register.tsx lets the
-// user choose when to apply the update so an in-progress triage is never interrupted.
+// user choose when to apply the update so an in-progress screening is never interrupted.
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(VERSION).then((cache) => cache.addAll(SHELL_URLS))
   );
 });
 
-// On activate: delete all caches from older versions, claim clients, and check triage rules version.
+// On activate: delete all caches from older versions, claim clients, and check model version.
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== VERSION && k !== RULES_VERSION_CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim()).then(() => checkTriageRulesVersion())
+      Promise.all(keys.filter((k) => k !== VERSION && k !== MODEL_VERSION_CACHE).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim()).then(() => checkModelVersion())
   );
 });
 
-async function checkTriageRulesVersion() {
+// Model files to download and cache on OTA update.
+const MODEL_FILES = [
+  "/models/efficientdet-lite3-cervical-v1.2.tflite",
+  "/models/mobilenetv2-cervical-via-v1.2.tflite",
+];
+const MODEL_CACHE_NAME = "daghe-models-v1";
+
+async function sha256Hex(buffer) {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function downloadModelFiles(version) {
+  const modelCache = await caches.open(MODEL_CACHE_NAME);
+  for (const url of MODEL_FILES) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Failed to fetch model ${url}: ${res.status}`);
+    const buf = await res.arrayBuffer();
+    // Compute SHA-256 for integrity verification (logged; server-side pinning can extend this).
+    const hash = await sha256Hex(buf);
+    console.log(`[SW] Model downloaded: ${url} (sha256=${hash}, version=${version})`);
+    await modelCache.put(url, new Response(buf, { headers: { "Content-Type": "application/octet-stream", "X-Model-Version": String(version), "X-SHA256": hash } }));
+  }
+}
+
+async function checkModelVersion() {
   try {
-    const response = await fetch("/api/triage/rules", { cache: "no-store" });
+    const response = await fetch("/api/modules/version", { cache: "no-store" });
     if (!response.ok) return;
     const body = await response.json();
-    const newVersion = body?.data?.version ?? body?.version;
+    const newVersion = body?.data?.version;
     if (!newVersion) return;
 
-    const versionCache = await caches.open(RULES_VERSION_CACHE);
-    const stored = await versionCache.match("triage-rules-version");
+    const versionCache = await caches.open(MODEL_VERSION_CACHE);
+    const stored = await versionCache.match("model-version");
     const oldVersion = stored ? await stored.text() : null;
 
-    // Always store the latest version.
-    await versionCache.put("triage-rules-version", new Response(String(newVersion)));
+    if (oldVersion !== String(newVersion)) {
+      // New or changed version — download model files before updating stored version.
+      await downloadModelFiles(newVersion);
+      await versionCache.put("model-version", new Response(String(newVersion)));
 
-    if (oldVersion && oldVersion !== String(newVersion)) {
-      const clients = await self.clients.matchAll({ type: "window" });
-      clients.forEach((client) => {
-        client.postMessage({ type: "TRIAGE_RULES_UPDATED", version: newVersion });
-      });
+      if (oldVersion) {
+        // Only notify clients when this is an update (not first-time install).
+        const clients = await self.clients.matchAll({ type: "window" });
+        clients.forEach((client) => {
+          client.postMessage({ type: "MODEL_VERSION_UPDATED", version: newVersion });
+        });
+      } else {
+        // First install: store version without notifying (models pre-warmed silently).
+        await versionCache.put("model-version", new Response(String(newVersion)));
+      }
     }
   } catch {
     // Network unavailable or endpoint doesn't exist — skip silently.
@@ -59,7 +94,7 @@ self.addEventListener("fetch", (event) => {
   // Never intercept non-GET requests or cross-origin requests.
   if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  // API and auth routes must always go to the network (no stale data for health decisions).
+  // API and auth routes must always go to the network (no stale data for clinical decisions).
   if (url.pathname.startsWith("/api/")) return;
 
   // For navigations and shell assets: cache-first, fall back to network.

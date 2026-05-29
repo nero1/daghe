@@ -1,5 +1,5 @@
 {
-  "name": "@asibi/web",
+  "name": "@daghe/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,14 +11,19 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@daghe/shared": "0.1.0",
+    "@upstash/redis": "1.34.9",
+    "decimal.js": "^10.4.3",
+    "dexie": "^4.0.0",
+    "dompurify": "^3.1.0",
     "next": "15.5.18",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "zod": "3.23.8",
-    "@asibi/shared": "0.1.0",
-    "@upstash/redis": "1.34.9"
+    "zod": "3.23.8"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^15.5.18",
+    "@types/dompurify": "^3.0.5",
     "@types/node": "22.15.2",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",

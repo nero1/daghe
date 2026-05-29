@@ -13,10 +13,10 @@ const sha = process.env.VERCEL_GIT_COMMIT_SHA
   ? process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 8)
   : Date.now().toString(36);
 
-const version = `asibi-shell-${sha}`;
+const version = `daghe-shell-${sha}`;
 
 let sw = fs.readFileSync(swPath, "utf8");
-sw = sw.replace(/const VERSION = "asibi-shell-[^"]+";/, `const VERSION = "${version}";`);
+sw = sw.replace(/const VERSION = "daghe-shell-[^"]+";/, `const VERSION = "${version}";`);
 fs.writeFileSync(swPath, sw);
 
 console.log(`[sw-version] Injected VERSION = "${version}" into sw.js`);

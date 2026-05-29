@@ -7,14 +7,14 @@ import { strings, type Lang, getSavedLang } from "@/lib/i18n";
 
 function getSavedTheme(): "light" | "dark" {
   if (typeof window === "undefined") return "light";
-  return (window.localStorage.getItem("asibi_theme") as "light" | "dark") ?? "light";
+  return (window.localStorage.getItem("daghe_theme") as "light" | "dark") ?? "light";
 }
 
 function saveTheme(theme: "light" | "dark") {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem("asibi_theme", theme);
+  window.localStorage.setItem("daghe_theme", theme);
   document.documentElement.setAttribute("data-theme", theme);
-  window.dispatchEvent(new CustomEvent("asibi:themechange", { detail: theme }));
+  window.dispatchEvent(new CustomEvent("daghe:themechange", { detail: theme }));
 }
 
 function SunIcon() {
@@ -63,17 +63,17 @@ export default function NavBar() {
       document.documentElement.setAttribute("data-theme", t);
     };
 
-    window.addEventListener("asibi:langchange", onLangChange);
+    window.addEventListener("daghe:langchange", onLangChange);
     window.addEventListener("storage", onLangChange);
     window.addEventListener("online", onStatus);
     window.addEventListener("offline", onStatus);
-    window.addEventListener("asibi:themechange", onThemeChange);
+    window.addEventListener("daghe:themechange", onThemeChange);
     return () => {
-      window.removeEventListener("asibi:langchange", onLangChange);
+      window.removeEventListener("daghe:langchange", onLangChange);
       window.removeEventListener("storage", onLangChange);
       window.removeEventListener("online", onStatus);
       window.removeEventListener("offline", onStatus);
-      window.removeEventListener("asibi:themechange", onThemeChange);
+      window.removeEventListener("daghe:themechange", onThemeChange);
     };
   }, []);
 
@@ -88,10 +88,10 @@ export default function NavBar() {
 
   const t = strings[lang];
 
-  const links: { href: "/app" | "/triage" | "/cases" | "/dashboard" | "/help"; label: string }[] = [
+  const links: { href: "/app" | "/screening" | "/encounters" | "/dashboard" | "/help"; label: string }[] = [
     { href: "/app", label: t.title },
-    { href: "/triage", label: t.triage },
-    { href: "/cases", label: t.cases },
+    { href: "/screening", label: "Screening" },
+    { href: "/encounters", label: t.cases },
     { href: "/dashboard", label: t.dashboard },
     { href: "/help", label: t.helpTitle },
   ];
@@ -109,7 +109,7 @@ export default function NavBar() {
   return (
     <header className="navbar">
       <div className="navbar-inner">
-        <Link href="/" className="navbar-brand">Asibi</Link>
+        <Link href="/" className="navbar-brand">Daghe</Link>
 
         <div className="navbar-status">
           <span className={`status-dot ${online ? "status-dot--online" : "status-dot--offline"}`} />

@@ -66,5 +66,5 @@ export async function GET(request: Request) {
 
   writeAuditLog(url, key, user.id, user.role, { riskLevel: riskLevel ?? "all", dateFrom: dateFrom ?? "", dateTo: dateTo ?? "", rowCap: String(MAX_EXPORT_ROWS), pageSize: "1000" }).catch(() => {});
 
-  return ok({ filename: `asibi-cases-${new Date().toISOString().slice(0, 10)}.csv`, csv: csvRows.join("\n"), truncated: rows.length >= MAX_EXPORT_ROWS }, requestId);
+  return ok({ filename: `daghe-cases-${new Date().toISOString().slice(0, 10)}.csv`, csv: csvRows.join("\n"), truncated: rows.length >= MAX_EXPORT_ROWS }, requestId);
 }

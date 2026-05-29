@@ -44,7 +44,7 @@ export default function ServiceWorkerRegister() {
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
 
     const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === "TRIAGE_RULES_UPDATED") {
+      if (event.data?.type === "MODEL_VERSION_UPDATED") {
         setRulesVersion(String(event.data.version));
       }
     };
@@ -70,7 +70,7 @@ export default function ServiceWorkerRegister() {
           padding: "1rem", display: "flex", alignItems: "center",
           justifyContent: "space-between", gap: "1rem", zIndex: 9999,
         }}>
-          <span>A new version of Asibi is available.</span>
+          <span>A new version of Daghe is available.</span>
           <button onClick={applyUpdate} style={{ background: "white", color: "#0ea5e9", fontWeight: 700 }}>
             Update now
           </button>
@@ -84,7 +84,7 @@ export default function ServiceWorkerRegister() {
           justifyContent: "space-between", gap: "1rem", zIndex: 9998,
         }}>
           <span style={{ fontSize: "0.9rem" }}>
-            Triage rules updated to version {rulesVersion}. Reload to apply the latest clinical guidelines.
+            AI model updated to version {rulesVersion}. Reload to apply the latest model.
           </span>
           <button onClick={() => window.location.reload()} style={{ background: "white", color: "#1565c0", fontWeight: 700, whiteSpace: "nowrap" }}>
             Reload Now

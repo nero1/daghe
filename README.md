@@ -1,126 +1,181 @@
-# Asibi
+# Daghe
 
-**Offline-first triage support for community health workers dealing with climate-related illness.**
+**Offline-first, multi-modal AI medical imaging screening for community health workers.**
 
-Asibi is a multilingual Progressive Web App (PWA) that helps community health workers (CHWs) in Nigeria assess and respond to climate-sensitive illnesses — without needing an internet connection.
+Daghe (Esan: "to see") is an offline-first Progressive Web App (PWA) for AI-assisted medical imaging screening. Community health workers (CHWs) and nurses capture or upload clinical images; Daghe analyses them using a 5-step AI inference chain and returns a POSITIVE / NEGATIVE / REFER classification — with or without an internet connection.
 
----
-
-## The Problem
-
-Nigeria has over 300,000 community health workers. Many operate in rural areas with no reliable internet, no diagnostic tools, and rising patient loads driven by extreme heat, flooding, and dust storms. When a child arrives with a fever after a flood, or collapses from heat exhaustion, the CHW has to make a judgment call with very little support.
-
-Climate change is making this harder every year.
+The platform is built as a pluggable **condition module** system. v1.0 ships with cervical cancer screening via VIA (Visual Inspection with Acetic Acid). Future modules — chest X-ray (TB), MRI, CT, ultrasound, skin lesions, retinal screening — can be added without changing core app code.
 
 ---
 
-## What Asibi Does
+## What Daghe Does
 
-- Guides CHWs through a structured triage flow for five climate-sensitive illnesses
-- Works fully offline after first install — no internet needed at point of care
-- Speaks four languages: English, Hausa, Yoruba, Igbo
-- Saves every case locally and syncs to a dashboard when connectivity returns
-- Gives clinic supervisors a live view of illness patterns across their CHW network
+- Guides CHWs through structured image screening flows across multiple imaging modalities
+- Runs a 5-step AI inference chain: on-device TFLite → Gemini Flash → GPT-4o → DeepSeek → module-specific offline rule-based → reference
+- Works fully offline after first install — AI models pre-cached via Service Worker
+- Saves screening encounters locally; syncs when connectivity returns
+- Supervisors can view a cost dashboard, manage BYOK API keys, and toggle AI providers
+- Supports **19 languages**: English (en), Hausa (ha), Yoruba (yo), Igbo (ig), French (fr), Arabic (ar), Swahili (sw), Amharic (am), Oromo (om), Lingala (ln), Twi (tw), Ewe (ee), Ga (gaa), Dagbani (dag), Fula (ff), Wolof (wo), Zulu (zu), Xhosa (xh), Afrikaans (af)
 
 ---
 
-## Climate Illness Coverage
+## Condition Modules
 
-| Illness | Climate Trigger |
-|---|---|
-| Heatstroke / Heat Exhaustion | Extreme heat days |
-| Malaria surge | Heavy rainfall / flooding |
-| Dengue fever | Stagnant water post-flood |
-| Respiratory illness | Dust storms / wildfire smoke |
-| Waterborne illness | Post-flood contamination |
-* Support for More to be added in the future
+Each module is a self-contained package defining: TFLite models, offline rule-based fallback, clinical reference text, demo images, and localised strings.
+
+| Module | Modality | Status |
+|---|---|---|
+| `@daghe/cervical-via` | Cervical cancer — VIA | v1.0 (current) |
+| `chest-xray-tb` | Chest X-ray — TB screening | Planned |
+| `skin-lesion` | Skin / wound assessment | Planned |
+| `retinal` | Retinal / eye screening | Planned |
+| `malaria-slide` | Malaria slide reading | Planned |
+| `ct-brain` | Brain CT interpretation | Planned |
+| `mri-spine` | Spine MRI interpretation | Planned |
+| `xray-general` | General X-ray interpretation | Planned |
+| `ultrasound` | Ultrasound interpretation | Planned |
+
 ---
 
-## How It Works
+## AI Inference Chain
 
-```
-CHW opens app (one-time internet load)
-→ Installs to home screen like a native app
-→ Selects language
-→ Taps "Start Triage"
-→ Selects symptom cluster
-→ Answers 3–5 guided follow-up questions
-→ Gets a result: likely illness + recommended action
-→ Case saved locally
-→ Syncs to Supabase dashboard when online
-```
+| Step | Method | When Used |
+|---|---|---|
+| 1 | TFLite on-device (WASM) | Always tried first |
+| 2 | Gemini Flash (cloud) | If TFLite unavailable |
+| 3 | GPT-4o (cloud) | If Gemini fails |
+| 4 | DeepSeek (cloud) | If GPT-4o fails |
+| 5 | Module-specific offline rule-based | If device is offline |
+| 6 | Reference classification | Reserved for no-inference fallback |
 
-No keyboard input during triage. No login required. Works on any Android or iOS device from 2018 onward.
+**Safety rule:** LOW or REFERENCE_ONLY confidence always overrides classification to REFER, unconditionally.
 
 ---
 
 ## Tech Stack
 
-- **Next.js 14** — app framework
-- **Tailwind CSS** — mobile-first UI
-- **Service Workers + Cache API** — offline capability
-- **IndexedDB** — local case storage
-- **Gemini Flash 2.0** — AI triage engine (live when online, cached decision trees when offline)
-- **Supabase** — case sync and supervisor dashboard backend
-- **i18n** — English, Hausa, Yoruba, Igbo
+- **Frontend:** Next.js 15, React 19, TypeScript, Tailwind CSS
+- **Database:** Supabase (PostgreSQL + Auth + RLS)
+- **Offline store:** Dexie.js (IndexedDB, DB name `daghe`)
+- **On-device AI:** TensorFlow.js TFLite (WASM backend, dynamically imported)
+- **Session cache:** Upstash Redis
+- **Cost arithmetic:** Decimal.js (no native floats for billing)
+- **Monorepo:** npm workspaces — `@daghe/web`, `@daghe/shared`, `@daghe/cervical-via`
 
 ---
 
-## Storage Architecture
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `SUPABASE_URL` | ✅ | Supabase project URL |
+| `SUPABASE_ANON_KEY` | ✅ | Supabase anon/public key |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key (server-only) |
+| `UPSTASH_REDIS_REST_URL` | ✅ | Upstash Redis REST endpoint |
+| `UPSTASH_REDIS_REST_TOKEN` | ✅ | Upstash Redis auth token |
+| `BYOK_ENCRYPTION_KEY` | ✅ | 64-char hex AES-256 master key for BYOK key encryption |
+| `GEMINI_API_KEY` | ⬜ | Google Gemini API key (platform key) |
+| `GEMINI_ENABLED` | ⬜ | `"true"` to enable Gemini fallback |
+| `GEMINI_MODEL` | ⬜ | Default: `gemini-2.0-flash` |
+| `OPENAI_API_KEY` | ⬜ | OpenAI API key (platform key) |
+| `OPENAI_ENABLED` | ⬜ | `"true"` to enable GPT-4o fallback |
+| `OPENAI_MODEL` | ⬜ | Default: `gpt-4o` |
+| `DEEPSEEK_API_KEY` | ⬜ | DeepSeek API key |
+| `DEEPSEEK_ENABLED` | ⬜ | `"true"` to enable DeepSeek fallback |
+| `DEEPSEEK_MODEL` | ⬜ | Default: `deepseek-chat` |
+| `TELEGRAM_BOT_TOKEN` | ⬜ | Telegram bot token for widget auth |
+| `FACILITY_JWT_SECRET` | ⬜ | Secret for facility-code JWT signing |
+
+Generate `BYOK_ENCRYPTION_KEY`:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+---
+
+## Database Migrations
+
+Run all migrations in order in Supabase SQL Editor:
 
 ```
-Layer 1 — Service Worker Cache
-  App shell, UI, fonts, icons
-  Loaded once, never needs internet again
-
-Layer 2 — Triage Logic Cache (JSON)
-  Pre-built decision trees for all 5 illness types
-  Gemini called live for edge cases when online
-
-Layer 3 — IndexedDB
-  Every triage session saved locally
-  Auto-syncs to Supabase when internet returns
+supabase/migrations/0001_init.sql           — users, cases base tables
+supabase/migrations/0002_cases_rls_policies.sql
+supabase/migrations/0003_audit_logs.sql
+supabase/migrations/0004_rls_least_privilege.sql
+supabase/migrations/0005_regions_clinics.sql
+supabase/migrations/0006_triage_rules.sql
+supabase/migrations/0007_indexes.sql
+supabase/migrations/0008_chw_stats.sql
+supabase/migrations/0009_chw_stats_scope.sql
+supabase/migrations/0010_cases_location.sql
+supabase/migrations/0011_audit_logs_fields.sql
+supabase/migrations/0012_case_flags.sql
+supabase/migrations/0013_data_retention.sql
+supabase/migrations/0014_triage_rule_version.sql
+supabase/migrations/0015_encounters.sql     — encounters table (imaging results)
+supabase/migrations/0016_user_api_keys.sql  — BYOK encrypted API keys
+supabase/migrations/0017_ai_usage_log.sql   — AI call audit trail
+supabase/migrations/0018_modules.sql        — module registry + admin_config
+supabase/migrations/0019_facility_codes.sql — facility codes for shared devices
+supabase/migrations/0020_encounters_rls.sql — RLS policies for encounters
+supabase/migrations/0021_telegram_auth.sql  — Telegram auth columns
 ```
 
 ---
 
-## UX Design Principles
+## TFLite Model Files
 
-- One thumb, one screen — all actions reachable without scrolling
-- Tap-only inputs during triage — no keyboard
-- High contrast — readable in direct sunlight
-- Color + icon coded results — no reliance on text alone
-- Under 3 minutes from open to result
+Place model files in `apps/web/public/models/`:
+- `efficientdet-lite3-cervical-v1.2.tflite` (detection / ROI localisation)
+- `mobilenetv2-cervical-via-v1.2.tflite` (classification)
 
----
-
-## Data & Privacy
-
-- No patient names stored anywhere
-- Data collected: age range, sex, symptoms, result, location (optional), timestamp
-- Consent screen shown on first use
-- All sync to Supabase is encrypted in transit
-- Designed to meet UNICEF consent-based data sharing standards
+Models are served statically and cached by the Service Worker in `daghe-models-v1` Cache API storage. The `ModelLoader` component downloads them in the background after first authentication.
 
 ---
 
-## Roadmap
+## Development
 
-- [x] Core triage flow (heatstroke, malaria pathways)
-- [x] Offline PWA install and service worker caching
-- [x] English and Hausa language support
-- [ ] Support for more illnesses
-- [ ] Yoruba and Igbo language strings
-- [ ] Supervisor dashboard v1
-- [ ] CHW pilot — 50 users across 2 Nigerian states
-- [ ] Live outbreak alert integration
-- [ ] v1.0 open-source release
-- [ ] Expansion to additional UNICEF programme countries
+```bash
+npm install
+npm run dev --workspace=apps/web
+```
+
+### Run tests
+```bash
+node tests/encounters.test.mjs
+node tests/ai-chain.test.mjs
+node tests/byok.test.mjs
+node tests/cost-calc.test.mjs
+node tests/quality-check.test.mjs
+node tests/security/prompt-injection.test.mjs
+node tests/security/demo-mode.test.mjs
+```
+
+### Bundle analysis
+```bash
+ANALYZE=true npm run build --workspace=apps/web
+```
 
 ---
 
-## License
+## Auth Methods
 
-GNU General Public License v3.0. Fully open-source.
+- **Google OAuth** (primary) — via Supabase Auth OAuth flow (`/api/auth/google` → `/api/auth/callback`)
+- **Telegram Login Widget** (secondary) — HMAC-SHA256 validated server-side
+- **Email + password** — fallback when OAuth providers are disabled
+- **4-digit PIN** — optional, for sensitive operations (BYOK settings, quality override)
+- **2FA** — TOTP (Google Authenticator / Authy) for supervisor/admin roles
+- **Facility-linked mode** — shared-device deployments using facility codes; no personal login required
 
 ---
+
+## Security Notes
+
+- BYOK keys are AES-256-GCM encrypted server-side — never stored or returned in plaintext
+- Images held in memory only (`useRef`, never React state); nulled after inference; never transmitted
+- All AI provider URLs are hardcoded (SSRF guard) — never user-controlled
+- Prompt injection: user fields wrapped in `---USER_CONTEXT_START/END---` delimiters
+- Demo encounters (`isDemoEncounter: true`) excluded from sync both client and server side
+- Role verified by DB query on every API route — never from session token alone
+- All cost arithmetic uses Decimal.js — no native float operations on billing data
+- No PII stored at any layer — no patient names, IDs, or contact details

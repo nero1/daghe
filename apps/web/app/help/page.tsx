@@ -90,31 +90,49 @@ export default function HelpPage() {
         </div>
       </div>
 
-      {/* Risk level legend */}
+      {/* Classification legend — replaces Asibi risk level legend */}
       <div>
-        <h2 className="help-section-title">{t.riskLevel}</h2>
-        <div className="help-risk-legend">
+        <h2 className="help-section-title">{t.classificationLegendTitle}</h2>
+        <p style={{ marginBottom: "1rem", color: "#374151", fontSize: ".9rem" }}>{t.classificationLegendIntro}</p>
+        <div style={{ display: "grid", gap: ".75rem", marginBottom: "1.5rem" }}>
           {(
             [
-              { key: "risk_monitor" as const, color: "#2e7d32" },
-              { key: "risk_treat_local" as const, color: "#1565c0" },
-              { key: "risk_refer" as const, color: "#7b1fa2" },
-              { key: "risk_urgent" as const, color: "#e65100" },
-              { key: "risk_emergency" as const, color: "#b71c1c" },
+              { label: t.classificationNegativeLabel, desc: t.classificationNegativeDesc, bg: "#16A34A", fg: "#fff" },
+              { label: t.classificationPositiveLabel, desc: t.classificationPositiveDesc, bg: "#DC2626", fg: "#fff" },
+              { label: t.classificationReferLabel, desc: t.classificationReferDesc, bg: "#D97706", fg: "#1C1917" },
             ] as const
-          ).map(({ key, color }) => (
-            <span
-              key={key}
-              style={{
-                background: color, color: "white", fontWeight: 700,
-                fontSize: ".85rem", padding: ".35rem .9rem", borderRadius: "2rem",
-                display: "inline-block",
-              }}
-            >
-              {t[key]}
-            </span>
+          ).map(({ label, desc, bg, fg }) => (
+            <div key={label} style={{ background: bg, color: fg, borderRadius: 10, padding: "12px 16px" }}>
+              <strong style={{ fontSize: "1rem", display: "block", marginBottom: 4 }}>{label}</strong>
+              <span style={{ fontSize: ".875rem", opacity: 0.92 }}>{desc}</span>
+            </div>
           ))}
         </div>
+      </div>
+
+      {/* Confidence bands */}
+      <div>
+        <h2 className="help-section-title">{t.confidenceBandTitle}</h2>
+        <div className="help-risk-legend" style={{ flexDirection: "column", alignItems: "stretch" }}>
+          {(
+            [
+              { band: "HIGH", color: "#16A34A", fg: "#fff", desc: t.confidenceBandHigh },
+              { band: "MODERATE", color: "#D97706", fg: "#1C1917", desc: t.confidenceBandModerate },
+              { band: "LOW", color: "#DC2626", fg: "#fff", desc: t.confidenceBandLow },
+              { band: "REFERENCE ONLY", color: "#6B7280", fg: "#fff", desc: t.confidenceBandReference },
+            ] as const
+          ).map(({ band, color, fg, desc }) => (
+            <div key={band} style={{ display: "flex", alignItems: "flex-start", gap: ".75rem", marginBottom: ".5rem" }}>
+              <span style={{ background: color, color: fg, fontWeight: 700, fontSize: ".75rem", padding: ".3rem .75rem", borderRadius: "2rem", whiteSpace: "nowrap", minWidth: 110, textAlign: "center", flexShrink: 0 }}>
+                {band}
+              </span>
+              <span style={{ fontSize: ".85rem", color: "#374151", paddingTop: ".2rem" }}>{desc}</span>
+            </div>
+          ))}
+        </div>
+        <p style={{ marginTop: ".75rem", fontSize: ".85rem", color: "#1e3a5f", fontWeight: 600, background: "#eff6ff", padding: ".6rem .9rem", borderRadius: 8 }}>
+          {t.helpSafetyNote}
+        </p>
       </div>
     </main>
   );

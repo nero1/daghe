@@ -24,10 +24,9 @@ export type LocalCase = {
   nextRetryAt?: string;
 };
 
-const DB_NAME = "asibi";
+const DB_NAME = "daghe";
 const STORE = "cases";
-// Bumped to 5: added locationLat, locationLng, locationAccuracy.
-const VERSION = 5;
+const VERSION = 6;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
