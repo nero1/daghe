@@ -1,19 +1,39 @@
 # Daghe
 
-**AI-assisted cervical cancer screening for community health workers — offline-first PWA.**
+**Offline-first, multi-modal AI medical imaging screening for community health workers.**
 
-Daghe (Esan: "to see") is a multilingual Progressive Web App (PWA) that helps community health workers (CHWs) and nurses perform Visual Inspection with Acetic Acid (VIA) cervical cancer screening — with or without an internet connection.
+Daghe (Esan: "to see") is an offline-first Progressive Web App (PWA) for AI-assisted medical imaging screening. Community health workers (CHWs) and nurses capture or upload clinical images; Daghe analyses them using a 5-step AI inference chain and returns a POSITIVE / NEGATIVE / REFER classification — with or without an internet connection.
+
+The platform is built as a pluggable **condition module** system. v1.0 ships with cervical cancer screening via VIA (Visual Inspection with Acetic Acid). Future modules — chest X-ray (TB), MRI, CT, ultrasound, skin lesions, retinal screening — can be added without changing core app code.
 
 ---
 
 ## What Daghe Does
 
-- Guides CHWs through a structured VIA screening flow
-- Runs a 5-step AI inference chain: on-device TFLite → Gemini Flash → GPT-4o → offline rule-based → reference
+- Guides CHWs through structured image screening flows across multiple imaging modalities
+- Runs a 5-step AI inference chain: on-device TFLite → Gemini Flash → GPT-4o → DeepSeek → module-specific offline rule-based → reference
 - Works fully offline after first install — AI models pre-cached via Service Worker
 - Saves screening encounters locally; syncs when connectivity returns
 - Supervisors can view a cost dashboard, manage BYOK API keys, and toggle AI providers
-- Supports English, Hausa (ha), Yoruba (yo), Igbo (ig), and French (fr)
+- Supports **19 languages**: English (en), Hausa (ha), Yoruba (yo), Igbo (ig), French (fr), Arabic (ar), Swahili (sw), Amharic (am), Oromo (om), Lingala (ln), Twi (tw), Ewe (ee), Ga (gaa), Dagbani (dag), Fula (ff), Wolof (wo), Zulu (zu), Xhosa (xh), Afrikaans (af)
+
+---
+
+## Condition Modules
+
+Each module is a self-contained package defining: TFLite models, offline rule-based fallback, clinical reference text, demo images, and localised strings.
+
+| Module | Modality | Status |
+|---|---|---|
+| `@daghe/cervical-via` | Cervical cancer — VIA | v1.0 (current) |
+| `chest-xray-tb` | Chest X-ray — TB screening | Planned |
+| `skin-lesion` | Skin / wound assessment | Planned |
+| `retinal` | Retinal / eye screening | Planned |
+| `malaria-slide` | Malaria slide reading | Planned |
+| `ct-brain` | Brain CT interpretation | Planned |
+| `mri-spine` | Spine MRI interpretation | Planned |
+| `xray-general` | General X-ray interpretation | Planned |
+| `ultrasound` | Ultrasound interpretation | Planned |
 
 ---
 
@@ -24,8 +44,9 @@ Daghe (Esan: "to see") is a multilingual Progressive Web App (PWA) that helps co
 | 1 | TFLite on-device (WASM) | Always tried first |
 | 2 | Gemini Flash (cloud) | If TFLite unavailable |
 | 3 | GPT-4o (cloud) | If Gemini fails |
-| 4 | WHO VIA rule-based questions | If offline |
-| 5 | Reference classification | Reserved |
+| 4 | DeepSeek (cloud) | If GPT-4o fails |
+| 5 | Module-specific offline rule-based | If device is offline |
+| 6 | Reference classification | Reserved for no-inference fallback |
 
 **Safety rule:** LOW or REFERENCE_ONLY confidence always overrides classification to REFER, unconditionally.
 
@@ -91,12 +112,13 @@ supabase/migrations/0011_audit_logs_fields.sql
 supabase/migrations/0012_case_flags.sql
 supabase/migrations/0013_data_retention.sql
 supabase/migrations/0014_triage_rule_version.sql
-supabase/migrations/0015_encounters.sql     — encounters table (VIA results)
+supabase/migrations/0015_encounters.sql     — encounters table (imaging results)
 supabase/migrations/0016_user_api_keys.sql  — BYOK encrypted API keys
 supabase/migrations/0017_ai_usage_log.sql   — AI call audit trail
 supabase/migrations/0018_modules.sql        — module registry + admin_config
 supabase/migrations/0019_facility_codes.sql — facility codes for shared devices
 supabase/migrations/0020_encounters_rls.sql — RLS policies for encounters
+supabase/migrations/0021_telegram_auth.sql  — Telegram auth columns
 ```
 
 ---
@@ -133,6 +155,17 @@ node tests/security/demo-mode.test.mjs
 ```bash
 ANALYZE=true npm run build --workspace=apps/web
 ```
+
+---
+
+## Auth Methods
+
+- **Google OAuth** (primary) — via Supabase Auth OAuth flow (`/api/auth/google` → `/api/auth/callback`)
+- **Telegram Login Widget** (secondary) — HMAC-SHA256 validated server-side
+- **Email + password** — fallback when OAuth providers are disabled
+- **4-digit PIN** — optional, for sensitive operations (BYOK settings, quality override)
+- **2FA** — TOTP (Google Authenticator / Authy) for supervisor/admin roles
+- **Facility-linked mode** — shared-device deployments using facility codes; no personal login required
 
 ---
 

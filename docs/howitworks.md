@@ -2,9 +2,11 @@
 
 This guide explains the product for users and administrators — no technical background required.
 
+Daghe is a **multi-modal medical imaging screening platform** for community health workers. It is designed to support any clinical imaging modality — starting with cervical cancer VIA screening, and expanding to chest X-ray (TB), skin lesions, retinal imaging, MRI, CT, ultrasound, and more — through a pluggable module system.
+
 ## 1) Main User Types
 
-- **CHW (Community Health Worker):** Performs VIA screening, captures images, saves encounters.
+- **CHW (Community Health Worker):** Performs AI-assisted screening using enabled imaging modules (e.g. cervical VIA, chest X-ray). Captures images, receives AI-assisted classifications, saves encounters.
 - **Supervisor:** Reviews encounter history, manages BYOK API keys, monitors AI costs.
 - **Admin:** Full access — manages users, clinics, modules, AI providers, cost dashboard.
 
@@ -18,7 +20,7 @@ Module select → Patient context → Capture guide → Image capture
 Quality check → AI inference → Result display → Action taken + Save
 ```
 
-**Module select:** Choose the screening type. Currently only `Cervical Cancer Screening (VIA)`.
+**Module select:** Choose the screening type from the list of modules enabled for your facility. The v1.0 platform launches with `Cervical Cancer Screening (VIA)`. Additional modules (chest X-ray TB screening, skin lesion assessment, retinal screening, and more) are added through the admin panel as they become available.
 
 **Patient context:** Select patient age band (anonymous) and screening reason (routine / referral / HPV-positive triage). No names or identifiers are collected.
 
@@ -35,7 +37,7 @@ Quality check → AI inference → Result display → Action taken + Save
 1. On-device TFLite model (WASM) — instant, works offline, no cost
 2. Gemini Flash (cloud) — if TFLite unavailable
 3. GPT-4o (cloud) — if Gemini fails
-4. WHO VIA rule-based questions — if device is offline
+4. Module-specific offline rule-based questions (WHO-sourced per module) — if device is offline
 5. Reference only — reserved for future use
 
 After inference, the image is immediately deleted from memory.
@@ -117,4 +119,29 @@ Supervisors can store their own AI provider API keys so that AI calls are billed
 - Browser storage (IndexedDB + Cache API) can be cleared by OS or browser settings.
 - Cloud AI fallback requires internet and a valid API key.
 - The rule-based fallback uses 3 questions only — it is less precise than the AI models.
-- Professional translations for ha/yo/ig are pending (currently English placeholders for new screening keys).
+- Daghe supports 19 languages: English, Hausa, Yoruba, Igbo, French, Arabic, Swahili, Amharic, Oromo, Lingala, Twi, Ewe, Ga, Dagbani, Fula, Wolof, Zulu, Xhosa, and Afrikaans. Professional clinical translations for non-English languages are being validated by clinical partners. English is the reference translation.
+
+## 11) Platform Roadmap — Planned Modules
+
+Daghe is built as a pluggable module platform. Each new imaging modality is added as a self-contained module — no changes to core app code are required.
+
+**Current (v1.0):**
+
+| Module | Modality |
+|---|---|
+| `@daghe/cervical-via` | Cervical cancer screening via VIA |
+
+**Planned post-v1.0:**
+
+| Module | Modality |
+|---|---|
+| `chest-xray-tb` | Chest X-ray — TB screening |
+| `skin-lesion` | Skin / wound assessment |
+| `retinal` | Retinal / eye screening |
+| `malaria-slide` | Malaria slide reading |
+| `ct-brain` | Brain CT interpretation |
+| `mri-spine` | Spine MRI interpretation |
+| `xray-general` | General X-ray interpretation (fractures, pneumonia) |
+| `ultrasound` | Ultrasound interpretation (obstetric, abdominal) |
+
+Each module defines its own TFLite models, offline rule-based fallback, clinical reference text, demo images, and localised strings. Modules are enabled or disabled per deployment from the Admin panel — a facility in Nigeria focused on cervical screening can run only `cervical-via`, while a hospital radiology department can enable `ct-brain` and `mri-spine` alongside it.

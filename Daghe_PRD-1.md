@@ -95,12 +95,23 @@ Daghe is built around a pluggable **condition module** architecture. Each module
 **v1.0 launch module:** `cervical-via` — AI-assisted VIA cervical cancer screening
 
 **Planned modules (post-v1.0):**
-- Skin lesion / wound assessment
-- Chest X-ray interpretation (TB screening)
-- Eye / retinal image screening
-- Malaria slide reading
-- Dental caries screening
-- Malnutrition / MUAC visual assessment
+- `chest-xray-tb` — Chest X-ray interpretation (TB screening)
+- `skin-lesion` — Skin / wound assessment
+- `retinal` — Eye / retinal image screening
+- `malaria-slide` — Malaria slide reading
+- `ct-brain` — Brain CT abnormality detection
+- `ct-chest` — Chest CT interpretation
+- `ct-abdomen` — Abdominal CT interpretation
+- `mri-brain` — Brain MRI interpretation
+- `mri-spine` — Spine MRI interpretation
+- `xray-fracture` — General X-ray for fracture detection
+- `xray-pneumonia` — Chest X-ray for pneumonia / TB
+- `ultrasound-obstetric` — Basic obstetric ultrasound
+- `ultrasound-abdominal` — Abdominal ultrasound
+- `dental-caries` — Dental caries screening
+- `muac-malnutrition` — Malnutrition / MUAC visual assessment
+
+For scan-based modules (CT, MRI, X-ray, ultrasound), the module `inputType` is set to `"uploaded-image"`, allowing healthcare workers to photograph or upload PACS/DICOM-exported images for analysis. The inference pipeline is identical — TFLite on-device → cloud AI fallback → rule-based fallback — with module-specific models and prompts.
 
 New modules are added via a module registry in the admin panel. Admin can enable/disable individual modules per deployment. The module system must be designed so that adding a new module never requires changes to core application code — only the addition of the module package and a registry entry.
 
@@ -312,9 +323,24 @@ No SMS. No push notifications in v1.0 (planned for v1.1 via Web Push API).
 
 All UI strings, result labels, recommended action text, confidence label explanations, clinical guidance, consent screens, error messages, and onboarding copy are fully internationalised. Hard-coded English strings in the UI are not acceptable — every user-visible string must go through the i18n system.
 
-**v1.0 launch languages:** English (primary), Hausa, Yoruba, Igbo, French
+**Languages supported (19 — full parity with the Asibi platform):**
 
-**Planned:** Full parity with Asibi's 19+ African languages as translations are validated by clinical partners
+| Code | Language | Code | Language |
+|---|---|---|---|
+| `en` | English | `om` | Oromo |
+| `ha` | Hausa | `ln` | Lingala |
+| `yo` | Yoruba | `tw` | Twi |
+| `ig` | Igbo | `ee` | Ewe |
+| `fr` | French | `gaa` | Ga |
+| `ar` | Arabic | `dag` | Dagbani |
+| `sw` | Swahili | `ff` | Fula |
+| `am` | Amharic | `wo` | Wolof |
+| `zu` | Zulu | `xh` | Xhosa |
+| `af` | Afrikaans | | |
+
+All 19 language codes are present in `i18n.ts`. English is the reference translation. Professional clinical translations for new screening-specific strings (e.g. VIA result explanations, capture guide instructions) are being validated by clinical partners. All non-English strings that have not yet received clinical validation are flagged with a translator note and default to the English value. This is not a blocker for v1.0 — the core app UX strings are fully translated in all 19 languages.
+
+**RTL support:** Not required for v1.0. All CSS uses logical properties (`margin-inline-start`, `padding-block`, etc.) so RTL layout for Arabic, Amharic, and other RTL scripts can be enabled without a layout rewrite.
 
 Language selection persists in IndexedDB per device. Admin can configure which languages are available per deployment (e.g. a deployment in Senegal might enable French and Wolof, disable Igbo).
 
@@ -1239,16 +1265,16 @@ All documentation lives in `/docs`:
 
 ## 13. Future Roadmap (Post-v1.0)
 
-- Additional condition modules: TB chest X-ray, skin lesion, malaria slide, retinal screening
+- Additional condition modules in priority order: TB chest X-ray (`chest-xray-tb`), skin lesion (`skin-lesion`), malaria slide (`malaria-slide`), retinal screening (`retinal`), then CT/MRI/X-ray/ultrasound scan interpretation modules
 - Web push notifications (v1.1)
 - Supervisor live dashboard with real-time sync (Supabase Realtime)
 - Referral integration: generate structured referral letter from screening result
 - FHIR / DHIS2 export for Ministry of Health system integration
 - Offline model fine-tuning pipeline (federated learning, privacy-preserving)
-- Full Asibi language parity (19+ African languages)
 - Daghe / Asibi integration module
 - EU MDR regulatory submission package generation
-- RTL layout support (Arabic, Amharic)
+- RTL layout support (Arabic, Amharic) — CSS logical properties already in place
+- DICOM viewer integration for CT/MRI/X-ray modules
 
 ---
 

@@ -106,7 +106,7 @@ export default function LandingPage() {
           <div className="hero-pills">
             <span className="hero-pill">🌍 {t.featureLangTitle}</span>
             <span className="hero-pill">📶 {t.featureOfflineTitle}</span>
-            <span className="hero-pill">🌡 {t.featureClimateTitle}</span>
+            <span className="hero-pill">🔬 {t.featureClimateTitle}</span>
           </div>
 
           <div className="hero-cta">
@@ -138,8 +138,14 @@ export default function LandingPage() {
             </div>
             <div className="feature-card">
               <div className="feature-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+                {/* Medical imaging / multi-modal icon: eye with scan lines */}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                  <line x1="12" y1="5" x2="12" y2="3"/>
+                  <line x1="12" y1="21" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="3" y2="12"/>
+                  <line x1="21" y1="12" x2="19" y2="12"/>
                 </svg>
               </div>
               <h3>{t.featureClimateTitle}</h3>
@@ -189,7 +195,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="landing-footer">{t.landingFooter}</footer>
+      <footer className="landing-footer">
+        {t.landingFooter}
+        {" · "}
+        <Link href="/about" style={{ color: "inherit", textDecoration: "underline" }}>About</Link>
+        {" · "}
+        <Link href="/help" style={{ color: "inherit", textDecoration: "underline" }}>Help</Link>
+      </footer>
     </div>
   );
 }

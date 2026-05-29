@@ -4,10 +4,10 @@ This guide covers setting up Daghe for development and production deployment.
 
 ## 1) What Daghe Is
 
-Daghe is an AI-assisted VIA (Visual Inspection with Acetic Acid) cervical cancer screening PWA. Community Health Workers (CHWs) can:
-- Capture or upload cervical images for AI-assisted analysis
-- Get on-device AI results (TFLite WASM) or cloud AI results (Gemini, GPT-4o)
-- Work fully offline with WHO rule-based fallback
+Daghe is an offline-first AI-assisted medical imaging screening PWA — starting with cervical cancer VIA screening and extensible to CT, MRI, X-ray, ultrasound, skin lesions, retinal imaging, and more via its pluggable module system. Community Health Workers (CHWs) can:
+- Capture or upload clinical images for AI-assisted analysis across multiple imaging modalities
+- Get on-device AI results (TFLite WASM) or cloud AI results (Gemini, GPT-4o) — with or without internet
+- Work fully offline with module-specific rule-based fallback
 - Save encounters locally, sync when connectivity returns
 - Supervisors manage facilities, BYOK API keys, and view cost dashboards
 
@@ -40,9 +40,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
-3. In SQL Editor, run all 20 migration files in order:
+3. In SQL Editor, run all 21 migration files in order:
    ```
-   supabase/migrations/0001_init.sql through 0020_encounters_rls.sql
+   supabase/migrations/0001_init.sql through 0021_telegram_auth.sql
    ```
 4. In Supabase Auth → Users, create accounts and set `user_metadata.role` to `chw`, `supervisor`, or `admin`.
 
@@ -55,11 +55,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ## 6) TFLite Model Files
 
-Place model files in `apps/web/public/models/`:
-- `efficientdet-lite3-cervical-v1.2.tflite`
-- `mobilenetv2-cervical-via-v1.2.tflite`
+Place model files in `apps/web/public/models/`. Model filenames vary by module — for the v1.0 `cervical-via` module:
+- `efficientdet-lite3-cervical-v1.2.tflite` (ROI detection)
+- `mobilenetv2-cervical-via-v1.2.tflite` (classification)
 
-These are served as static files and cached by the Service Worker in the `daghe-models-v1` Cache API. The `ModelLoader` component (rendered after auth) downloads them in the background.
+Future modules (chest X-ray, MRI, CT, etc.) will add their own model filenames to this directory. All models are served as static files and cached by the Service Worker in the `daghe-models-v1` Cache API. The `ModelLoader` component (rendered after auth) downloads them in the background.
 
 ## 7) Local Development
 

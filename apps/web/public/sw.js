@@ -1,6 +1,6 @@
 // Service Worker version — bump this string whenever the app shell changes
 // so returning users get fresh assets and the update prompt appears.
-const VERSION = "daghe-shell-mpq2ah3c";
+const VERSION = "daghe-shell-mpqjcina";
 
 // App shell: routes and assets that must be available offline.
 // Includes clinical reference text — must always be available per PRD (Step 5 fallback).
