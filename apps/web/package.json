@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@daghe/shared": "0.1.0",
+    "@tensorflow/tfjs-backend-wasm": "4.9.0",
+    "@tensorflow/tfjs-core": "4.9.0",
+    "@tensorflow/tfjs-tflite": "0.0.1-alpha.10",
     "@upstash/redis": "1.34.9",
     "decimal.js": "^10.4.3",
     "dexie": "^4.0.0",
